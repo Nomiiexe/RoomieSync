@@ -158,6 +158,26 @@ p, span, small {
   color: var(--rs-dark-accent);
 }
 
+.rs-nav-link[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rs-nav-link[aria-disabled="true"]:hover {
+  background-color: transparent;
+  color: var(--rs-text-body);
+}
+
+.rs-dropdown-item[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rs-dropdown-item[aria-disabled="true"]:hover {
+  background-color: transparent;
+  color: inherit;
+}
+
 .rs-nav-link.active {
   background-color: #F0E3D6;
   color: var(--rs-dark-accent) !important;
@@ -746,4 +766,35 @@ p, span, small {
     box-shadow: none !important;
     border: 1px solid #ccc !important;
   }
+}
+
+/* RoomieSync Interactive & Utility Classes */
+.letter-spacing-1 { letter-spacing: 1px; }
+.letter-spacing-2 { letter-spacing: 2px; }
+.letter-spacing-3 { letter-spacing: 3px; }
+
+.rs-progress {
+  height: 10px;
+  background-color: var(--rs-card-secondary);
+  border-radius: var(--rs-radius-pill);
+  overflow: hidden;
+  border: 1px solid var(--rs-border);
+}
+
+.rs-progress-bar {
+  background-color: var(--rs-warm-tan);
+  border-radius: var(--rs-radius-pill);
+  transition: width 0.6s ease;
+}
+
+.rs-bill-card {
+  transition: all 0.2s ease;
+}
+.rs-bill-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--rs-shadow-hover);
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }

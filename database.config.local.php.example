@@ -1,0 +1,8 @@
+<?php
+// Copy this file to database.config.local.php and edit the values if needed.
+return [
+    'host' => 'localhost',
+    'database' => 'roomiesync',
+    'username' => 'root',
+    'password' => '',
+];

@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Password Visibility Toggle
   const passwordToggles = document.querySelectorAll('.toggle-password-btn');
   passwordToggles.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Mobile Navigation Drawer Toggle
   const mobileNavToggle = document.getElementById('mobileNavToggle');
   const navLinksContainer = document.getElementById('navLinksContainer');
   if (mobileNavToggle && navLinksContainer) {
@@ -25,6 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Keep navigation placeholders from changing the page until their pages exist.
+  const disabledNavLinks = document.querySelectorAll('.rs-nav-link[aria-disabled="true"], .rs-dropdown-item[aria-disabled="true"]');
+  disabledNavLinks.forEach(link => {
+    link.addEventListener('click', (e) => e.preventDefault());
+  });
+
+  // 1-Click Copy Invite Code Button
   const copyButtons = document.querySelectorAll('.btn-copy-code');
   copyButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -44,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Live Table Search
   const tableSearchInputs = document.querySelectorAll('.rs-table-search');
   tableSearchInputs.forEach(input => {
     const targetTableId = input.getAttribute('data-target');
@@ -60,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Table Filter Dropdowns
   const tableFilterSelects = document.querySelectorAll('.rs-table-filter');
   tableFilterSelects.forEach(select => {
     const targetTableId = select.getAttribute('data-target');
@@ -84,38 +95,153 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Tab Filtering for Chores and List Items
+  const filterTabs = document.querySelectorAll('.rs-filter-tab');
+  filterTabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      const parent = tab.closest('.rs-nav-pills');
+      if (parent) {
+        parent.querySelectorAll('.rs-filter-tab').forEach(t => t.classList.remove('active'));
+      }
+      tab.classList.add('active');
+      const filter = tab.getAttribute('data-filter') || 'all';
+      const targetSelector = tab.getAttribute('data-target-items') || '.rs-filter-item';
+      const items = document.querySelectorAll(targetSelector);
+      items.forEach(item => {
+        const status = item.getAttribute('data-status') || '';
+        if (filter === 'all' || status === filter) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // Dynamic Chore Checkbox Status Toggle
+  const choreCheckboxes = document.querySelectorAll('.rs-chore-check');
+  choreCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      const item = checkbox.closest('.rs-chore-item') || checkbox.closest('.list-group-item');
+      const label = item ? item.querySelector('.rs-chore-title') || item.querySelector('label') : null;
+      const badge = item ? item.querySelector('.rs-chore-badge') || item.querySelector('.rs-badge') : null;
+
+      if (checkbox.checked) {
+        if (label) label.classList.add('text-decoration-line-through', 'text-muted');
+        if (badge) {
+          badge.className = 'rs-badge rs-badge-completed rs-chore-badge';
+          badge.innerHTML = '<span class="rs-badge-dot"></span> Completed';
+        }
+        if (item) item.setAttribute('data-status', 'completed');
+        showToast('Chore marked as completed! Nice work!', 'success');
+      } else {
+        if (label) label.classList.remove('text-decoration-line-through', 'text-muted');
+        if (badge) {
+          badge.className = 'rs-badge rs-badge-pending rs-chore-badge';
+          badge.innerHTML = '<span class="rs-badge-dot"></span> Pending';
+        }
+        if (item) item.setAttribute('data-status', 'pending');
+        showToast('Chore marked as pending.', 'info');
+      }
+    });
+  });
+
+  // Delete Action Buttons
   const deleteButtons = document.querySelectorAll('.rs-btn-delete');
   deleteButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
+      e.preventDefault();
       const itemTitle = btn.getAttribute('data-title') || 'this item';
       if (confirm(`Are you sure you want to delete ${itemTitle}?`)) {
-        const row = btn.closest('tr');
-        if (row) {
-          row.style.opacity = '0.4';
-          setTimeout(() => {
-            row.remove();
-          }, 300);
+        const target = btn.closest('tr') || btn.closest('.rs-card') || btn.closest('.list-group-item');
+        if (target) {
+          target.style.transition = 'all 0.3s ease';
+          target.style.opacity = '0';
+          target.style.transform = 'scale(0.95)';
+          setTimeout(() => target.remove(), 300);
         }
         showToast(`Deleted ${itemTitle}`, 'info');
       }
     });
   });
 
+  // Mark Bill Paid Action
+  const markBillPaidButtons = document.querySelectorAll('.btn-mark-bill-paid');
+  markBillPaidButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const card = btn.closest('.rs-bill-card') || btn.closest('.rs-card');
+      const badge = card ? card.querySelector('.rs-bill-badge') : null;
+      if (badge) {
+        badge.className = 'rs-badge rs-badge-paid rs-bill-badge';
+        badge.innerHTML = '<span class="rs-badge-dot"></span> Paid';
+      }
+      btn.classList.add('disabled');
+      btn.innerHTML = '<i class="bi bi-check2"></i> Paid';
+      showToast('Bill marked as paid successfully!', 'success');
+    });
+  });
+
+  // Photo Upload Live Preview
+  const imageInputs = document.querySelectorAll('.rs-image-input');
+  imageInputs.forEach(input => {
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const previewContainer = document.getElementById(input.getAttribute('data-preview-target'));
+      if (file && previewContainer) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          previewContainer.innerHTML = `
+            <img src="${event.target.result}" alt="Preview" class="img-fluid rounded-3 mb-2" style="max-height: 180px; object-fit: cover; width: 100%;">
+            <p class="small text-success mb-0 fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> ${file.name} selected</p>
+          `;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  });
+
+  // Client-Side Simulated Form Handlers for Modals (ready for future PHP POST)
+  const simulatedForms = document.querySelectorAll('.rs-interactive-form');
+  simulatedForms.forEach(form => {
+    form.addEventListener('submit', (e) => {
+      // If no backend endpoint or standalone preview mode, show toast and close modal smoothly
+      const action = form.getAttribute('action') || '';
+      if (!action || action === '#' || action.endsWith('.html') || !action.endsWith('.php')) {
+        e.preventDefault();
+        const successMsg = form.getAttribute('data-success-msg') || 'Action completed successfully!';
+        const modalEl = form.closest('.modal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+          const modalInstance = bootstrap.Modal.getInstance(modalEl);
+          if (modalInstance) modalInstance.hide();
+        }
+        showToast(successMsg, 'success');
+        form.reset();
+      }
+    });
+  });
+
+  // Print Report Handler
   const printButtons = document.querySelectorAll('.btn-print-report');
   printButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
       window.print();
     });
   });
 
+  // Export Report Handler
   const exportButtons = document.querySelectorAll('.btn-export-report');
   exportButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      showToast('Report export initiated', 'info');
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showToast('Report export generated! Starting download...', 'success');
     });
   });
 });
 
+// Toast Notification Utility Function
 function showToast(message, type = 'info') {
   let container = document.querySelector('.toast-container-custom');
   if (!container) {
@@ -144,7 +270,8 @@ function showToast(message, type = 'info') {
 
   setTimeout(() => {
     toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.3s ease';
+    toast.style.transform = 'translateY(8px)';
+    toast.style.transition = 'all 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3500);
 }
