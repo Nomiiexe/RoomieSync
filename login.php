@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 
 if (restore_remembered_login()) {
-    redirect_to('households.php');
+    redirect_after_login();
 }
 
 $errorMessage = '';
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $delete->execute();
                 expire_remember_cookie();
             }
-            redirect_to('households.php');
+            redirect_after_login();
         }
     }
 }

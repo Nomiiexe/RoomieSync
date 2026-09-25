@@ -18,6 +18,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!valid_csrf_token($_POST['csrf_token'] ?? null)) {
         $errorMessage = 'This form expired. Please try again.';
+    } elseif ($action === 'select_household') {
+        $submittedHouseholdId = $_POST['household_id'] ?? null;
+        $householdId = is_string($submittedHouseholdId) && ctype_digit($submittedHouseholdId)
+            ? (int) $submittedHouseholdId
+            : 0;
+
+        if (!set_selected_household($householdId)) {
+            $errorMessage = 'That household selection is not valid.';
+        } else {
+            redirect_to('dashboard.php');
+        }
     } elseif ($action === 'create_household') {
         $householdName = trim(is_string($_POST['household_name'] ?? null) ? $_POST['household_name'] : '');
         $description = trim(is_string($_POST['description'] ?? null) ? $_POST['description'] : '');
@@ -50,6 +61,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $insertMember->bind_param('ii', $householdId, $userId);
                     $insertMember->execute();
 
+                    $defaultCategories = ['Kitchen', 'Cleaning', 'Laundry', 'Trash'];
+                    $insertCategory = $connection->prepare(
+                        'INSERT INTO chore_categoriesTb (household_id, category_name, description)
+                         VALUES (?, ?, NULL)'
+                    );
+                    foreach ($defaultCategories as $categoryName) {
+                        $insertCategory->bind_param('is', $householdId, $categoryName);
+                        $insertCategory->execute();
+                    }
+
                     $connection->commit();
                     $created = true;
                 } catch (mysqli_sql_exception $exception) {
@@ -61,10 +82,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($created) {
+                set_selected_household((int) $householdId);
                 $_SESSION['flash_message'] = [
                     'message' => 'Household created successfully. Your join code is ' . $joinCode . '.',
                 ];
-                redirect_to('households.php');
+                redirect_to('dashboard.php');
             }
         }
     }
@@ -156,9 +178,14 @@ $households = $householdsQuery->get_result()->fetch_all(MYSQLI_ASSOC);
                 </div>
 
                 <div class="mt-auto pt-2">
-                  <a href="dashboard.php" class="btn btn-rs-primary w-100 justify-content-center py-2">
-                    <span>Enter Household</span><i class="bi bi-arrow-right"></i>
-                  </a>
+                  <form action="households.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="select_household">
+                    <input type="hidden" name="household_id" value="<?= (int) $household['household_id'] ?>">
+                    <button type="submit" class="btn btn-rs-primary w-100 justify-content-center py-2">
+                      <span>Enter Household</span><i class="bi bi-arrow-right"></i>
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>

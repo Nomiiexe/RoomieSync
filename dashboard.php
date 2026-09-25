@@ -9,9 +9,14 @@ if (!restore_remembered_login()) {
 
 $connection = database_connection();
 $userId = (int) $_SESSION['user_id'];
+$householdId = selected_household_id();
+if ($householdId === null) {
+    redirect_to('households.php');
+}
 $username = (string) ($_SESSION['username'] ?? '');
 $fullName = (string) ($_SESSION['full_name'] ?? $username);
 $userEmail = '';
+$notice = consume_flash_message();
 
 $userQuery = $connection->prepare(
     'SELECT username, full_name, email FROM userTb WHERE user_id = ? LIMIT 1'
@@ -30,15 +35,18 @@ $householdQuery = $connection->prepare(
     'SELECT h.household_id, h.household_name, h.description, h.join_code, hm.role
      FROM householdmembersTb AS hm
      INNER JOIN householdTb AS h ON h.household_id = hm.household_id
-     WHERE hm.user_id = ?
-     ORDER BY hm.joined_at DESC
+     WHERE hm.user_id = ? AND hm.household_id = ?
      LIMIT 1'
 );
-$householdQuery->bind_param('i', $userId);
+$householdQuery->bind_param('ii', $userId, $householdId);
 $householdQuery->execute();
 $activeHousehold = $householdQuery->get_result()->fetch_assoc() ?: null;
 
 $householdId = $activeHousehold ? (int) $activeHousehold['household_id'] : 0;
+if ($householdId < 1) {
+    unset($_SESSION['household_id']);
+    redirect_to('households.php');
+}
 $pendingChores = 0;
 $balanceDue = 0.0;
 $paidThisMonth = 0.0;
@@ -53,9 +61,18 @@ if ($householdId > 0) {
         "SELECT COUNT(*) AS total
          FROM chore_assignmentsTb AS ca
          INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
-         WHERE ca.user_id = ? AND c.household_id = ? AND LOWER(ca.status) <> 'completed'"
+         WHERE c.household_id = ?
+           AND LOWER(ca.status) <> 'completed'
+           AND ca.assignment_id = (
+               SELECT ca2.assignment_id
+               FROM chore_assignmentsTb AS ca2
+               WHERE ca2.chore_id = c.chore_id
+                 AND LOWER(ca2.status) <> 'completed'
+               ORDER BY ca2.assignment_id DESC
+               LIMIT 1
+           )"
     );
-    $pendingQuery->bind_param('ii', $userId, $householdId);
+    $pendingQuery->bind_param('i', $householdId);
     $pendingQuery->execute();
     $pendingChores = (int) ($pendingQuery->get_result()->fetch_assoc()['total'] ?? 0);
 
@@ -100,15 +117,24 @@ if ($householdId > 0) {
     $upcomingBill = $billQuery->get_result()->fetch_assoc() ?: null;
 
     $choreQuery = $connection->prepare(
-        'SELECT ca.assignment_id, c.chore_name, ca.due_date, ca.status, u.username AS assigned_username
+        'SELECT ca.assignment_id, c.chore_name, ca.due_date, ca.status, u.full_name AS assigned_name
          FROM chore_assignmentsTb AS ca
          INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
          INNER JOIN userTb AS u ON u.user_id = ca.user_id
-         WHERE c.household_id = ? AND ca.user_id = ?
+         WHERE c.household_id = ?
+           AND LOWER(ca.status) <> \'completed\'
+           AND ca.assignment_id = (
+               SELECT ca2.assignment_id
+               FROM chore_assignmentsTb AS ca2
+               WHERE ca2.chore_id = c.chore_id
+                 AND LOWER(ca2.status) <> \'completed\'
+               ORDER BY ca2.assignment_id DESC
+               LIMIT 1
+           )
          ORDER BY ca.due_date ASC
          LIMIT 8'
     );
-    $choreQuery->bind_param('ii', $householdId, $userId);
+    $choreQuery->bind_param('i', $householdId);
     $choreQuery->execute();
     $chores = $choreQuery->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -157,10 +183,13 @@ if ($householdId > 0) {
         $query = $connection->prepare($activityQuery['sql']);
         $query->bind_param('i', $householdId);
         $query->execute();
-        while ($activity = $query->get_result()->fetch_assoc()) {
+        $activityResult = $query->get_result();
+        while ($activity = $activityResult->fetch_assoc()) {
             $activity['type'] = $activityQuery['type'];
             $activities[] = $activity;
         }
+        $activityResult->free();
+        $query->close();
     }
     usort(
         $activities,
@@ -235,12 +264,11 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
 
       <ul class="rs-nav-links" id="navLinksContainer">
         <li><a href="dashboard.php" class="rs-nav-link active"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Chores page coming soon"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
+        <li><a href="chores.php" class="rs-nav-link"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
         <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Bills page coming soon"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
         <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i><span>Household</span></a></li>
         <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Reports page coming soon"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li>
-        <li><a href="profile.php" class="rs-nav-link"><i class="bi bi-person-circle"></i><span>Profile</span></a></li>
+        <?php if (strcasecmp($role, 'Admin') === 0): ?><li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
       </ul>
 
       <div class="rs-nav-user dropdown">
@@ -260,7 +288,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
             <?php if ($role !== ''): ?><div class="mt-1"><span class="role-badge roommate"><?= h($role) ?></span></div><?php endif; ?>
           </li>
           <li><a class="dropdown-item rs-dropdown-item" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a></li>
-          <li><a class="dropdown-item rs-dropdown-item" href="#" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i> Household</a></li>
+          <li><a class="dropdown-item rs-dropdown-item" href="households.php"><i class="bi bi-arrow-left-right"></i> Switch Household</a></li>
           <li><a class="dropdown-item rs-dropdown-item" href="join-household.php"><i class="bi bi-door-open"></i> Join Another Home</a></li>
           <li><hr class="dropdown-divider rs-dropdown-divider"></li>
           <li><a class="dropdown-item rs-dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-right"></i> Sign Out</a></li>
@@ -270,6 +298,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
   </div>
 
   <main class="container py-4 flex-grow-1">
+    <?php if ($notice): ?><div class="alert alert-success" role="status"><?= h((string) ($notice['message'] ?? '')) ?></div><?php endif; ?>
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-4">
       <div>
         <h2 class="fw-bold mb-1">Kamusta, <?= h($displayName) ?>!</h2>
@@ -291,7 +320,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
           <div class="rs-stat-content">
             <div class="rs-stat-label">Pending Chores</div>
             <div class="rs-stat-value"><?= $activeHousehold ? $pendingChores : '—' ?></div>
-            <div class="rs-stat-subtext text-secondary-custom"><?= $activeHousehold ? ($pendingChores === 0 ? 'No pending chores' : 'Assigned to you') : 'No household selected' ?></div>
+            <div class="rs-stat-subtext text-secondary-custom"><?= $activeHousehold ? ($pendingChores === 0 ? 'No pending chores' : 'Current household assignments') : 'No household selected' ?></div>
           </div>
         </div>
       </div>
@@ -333,9 +362,12 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
           <div class="rs-card-header">
             <div>
               <h5 class="rs-card-title">Pending Chores</h5>
-              <div class="rs-card-subtitle">Assignments connected to your household</div>
+              <div class="rs-card-subtitle">Current assignments in your household</div>
             </div>
-            <?php if ($activeHousehold): ?><span class="badge bg-warm-secondary text-dark-accent border px-2 py-1"><?= count($chores) ?> shown</span><?php endif; ?>
+            <div class="d-flex align-items-center gap-2">
+              <?php if ($activeHousehold): ?><span class="badge bg-warm-secondary text-dark-accent border px-2 py-1"><?= count($chores) ?> shown</span><?php endif; ?>
+              <a href="chores.php" class="btn btn-sm btn-rs-outline">View all</a>
+            </div>
           </div>
 
           <?php if (!$activeHousehold): ?>
@@ -346,7 +378,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
           <?php elseif (!$chores): ?>
             <div class="p-4 text-center bg-warm-secondary rounded-3">
               <i class="bi bi-check2-circle fs-3 text-dark-accent"></i>
-              <p class="mb-0 mt-2 text-secondary-custom">No chore assignments yet.</p>
+              <p class="mb-0 mt-2 text-secondary-custom">No pending chores in this household.</p>
             </div>
           <?php else: ?>
             <div class="list-group list-group-flush border rounded-3 overflow-hidden">
@@ -356,7 +388,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
                   <div class="d-flex align-items-center gap-3">
                     <div>
                       <div class="fw-bold text-dark-accent rs-chore-title"><?= h((string) $chore['chore_name']) ?></div>
-                      <small class="text-secondary-custom"><i class="bi bi-calendar3 me-1"></i><?= h(dashboard_date((string) $chore['due_date'])) ?></small>
+                      <small class="text-secondary-custom"><i class="bi bi-person me-1"></i><?= h((string) $chore['assigned_name']) ?> <span class="mx-1">·</span> <i class="bi bi-calendar3 me-1"></i><?= h(dashboard_date((string) $chore['due_date'])) ?></small>
                     </div>
                   </div>
                   <span class="rs-badge <?= h(dashboard_status_class($status)) ?> rs-chore-badge"><span class="rs-badge-dot"></span><?= h($status) ?></span>

@@ -105,12 +105,10 @@ CREATE TABLE IF NOT EXISTS choresTb (
   frequency VARCHAR(50) NOT NULL,
   assignment_type VARCHAR(20) NOT NULL,
   created_by INT NOT NULL,
-  assigned_to INT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (household_id) REFERENCES householdTb(household_id) ON DELETE CASCADE,
   FOREIGN KEY (category_id) REFERENCES chore_categoriesTb(chore_category_id) ON DELETE SET NULL,
-  FOREIGN KEY (created_by) REFERENCES userTb(user_id) ON DELETE CASCADE,
-  FOREIGN KEY (assigned_to) REFERENCES userTb(user_id) ON DELETE SET NULL
+  FOREIGN KEY (created_by) REFERENCES userTb(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS chore_rotationTb (
@@ -198,3 +196,21 @@ CREATE TABLE IF NOT EXISTS maintenanceTb (
   FOREIGN KEY (household_id) REFERENCES householdTb(household_id) ON DELETE CASCADE,
   FOREIGN KEY (reported_by) REFERENCES userTb(user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- Standard household chore categories. The application also seeds these when
+-- a new household is created and loads them dynamically in the chore form.
+INSERT INTO chore_categoriesTb (household_id, category_name, description)
+SELECT h.household_id, defaults.category_name, NULL
+FROM householdTb AS h
+CROSS JOIN (
+  SELECT 'Kitchen' AS category_name
+  UNION ALL SELECT 'Cleaning'
+  UNION ALL SELECT 'Laundry'
+  UNION ALL SELECT 'Trash'
+) AS defaults
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM chore_categoriesTb AS existing
+  WHERE existing.household_id = h.household_id
+    AND LOWER(existing.category_name) = LOWER(defaults.category_name)
+);

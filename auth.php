@@ -83,9 +83,76 @@ function expire_remember_cookie(): void
 function set_signed_in_user(array $user): void
 {
     session_regenerate_id(true);
+    unset($_SESSION['household_id']);
     $_SESSION['user_id'] = (int) $user['user_id'];
     $_SESSION['full_name'] = (string) $user['full_name'];
     $_SESSION['username'] = (string) $user['username'];
+}
+
+function set_selected_household(int $householdId): bool
+{
+    if (!user_is_signed_in() || $householdId < 1) {
+        unset($_SESSION['household_id']);
+        return false;
+    }
+
+    $userId = (int) $_SESSION['user_id'];
+    $query = database_connection()->prepare(
+        'SELECT household_id
+         FROM householdmembersTb
+         WHERE household_id = ? AND user_id = ?
+         LIMIT 1'
+    );
+    $query->bind_param('ii', $householdId, $userId);
+    $query->execute();
+
+    if (!$query->get_result()->fetch_assoc()) {
+        unset($_SESSION['household_id']);
+        return false;
+    }
+
+    $_SESSION['household_id'] = $householdId;
+    return true;
+}
+
+function selected_household_id(): ?int
+{
+    if (!user_is_signed_in() || !isset($_SESSION['household_id']) || !is_int($_SESSION['household_id'])) {
+        return null;
+    }
+
+    $householdId = (int) $_SESSION['household_id'];
+    if (!set_selected_household($householdId)) {
+        return null;
+    }
+
+    return $householdId;
+}
+
+function redirect_after_login(): never
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($userId < 1) {
+        redirect_to('login.php');
+    }
+
+    $query = database_connection()->prepare(
+        'SELECT household_id
+         FROM householdmembersTb
+         WHERE user_id = ?
+         ORDER BY joined_at ASC
+         LIMIT 2'
+    );
+    $query->bind_param('i', $userId);
+    $query->execute();
+    $households = $query->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    if (count($households) === 1 && set_selected_household((int) $households[0]['household_id'])) {
+        redirect_to('dashboard.php');
+    }
+
+    unset($_SESSION['household_id']);
+    redirect_to('households.php');
 }
 
 function start_remembered_login(array $user): void

@@ -9,6 +9,10 @@ if (!restore_remembered_login()) {
 
 $connection = database_connection();
 $userId = (int) $_SESSION['user_id'];
+$selectedHouseholdId = selected_household_id();
+if ($selectedHouseholdId === null) {
+    redirect_to('households.php');
+}
 $errorMessage = '';
 $notice = consume_flash_message();
 
@@ -140,11 +144,10 @@ $householdQuery = $connection->prepare(
             h.household_image, h.created_at, hm.role, hm.joined_at
      FROM householdmembersTb AS hm
      INNER JOIN householdTb AS h ON h.household_id = hm.household_id
-     WHERE hm.user_id = ?
-     ORDER BY hm.joined_at DESC
+     WHERE hm.user_id = ? AND hm.household_id = ?
      LIMIT 1'
 );
-$householdQuery->bind_param('i', $userId);
+$householdQuery->bind_param('ii', $userId, $selectedHouseholdId);
 $householdQuery->execute();
 $household = $householdQuery->get_result()->fetch_assoc() ?: null;
 
@@ -204,12 +207,11 @@ $role = $household ? (string) $household['role'] : '';
       </button>
       <ul class="rs-nav-links" id="navLinksContainer">
         <li><a href="dashboard.php" class="rs-nav-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Chores page coming soon"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
+        <li><a href="chores.php" class="rs-nav-link"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
         <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Bills page coming soon"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
         <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i><span>Household</span></a></li>
         <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Reports page coming soon"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li>
-        <li><a href="profile.php" class="rs-nav-link active"><i class="bi bi-person-circle"></i><span>Profile</span></a></li>
+        <?php if (strcasecmp($role, 'Admin') === 0): ?><li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
       </ul>
       <div class="rs-nav-user dropdown">
         <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -222,7 +224,7 @@ $role = $household ? (string) $household['role'] : '';
             <small class="text-secondary-custom"><?= $formEmail !== '' ? h($formEmail) : 'No email set' ?></small>
           </li>
           <li><a class="dropdown-item rs-dropdown-item" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a></li>
-          <li><a class="dropdown-item rs-dropdown-item" href="#" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i> Household</a></li>
+          <li><a class="dropdown-item rs-dropdown-item" href="households.php"><i class="bi bi-arrow-left-right"></i> Switch Household</a></li>
           <li><hr class="dropdown-divider rs-dropdown-divider"></li>
           <li><a class="dropdown-item rs-dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-right"></i> Sign Out</a></li>
         </ul>
