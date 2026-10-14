@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorMessage = 'Enter your username and password.';
     } else {
         $query = database_connection()->prepare(
-            'SELECT user_id, full_name, username, password_hash FROM userTb WHERE username = ? LIMIT 1'
+            'SELECT user_id, full_name, username, password_hash, profile_picture FROM userTb WHERE username = ? LIMIT 1'
         );
         $query->bind_param('s', $username);
         $query->execute();

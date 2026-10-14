@@ -87,6 +87,7 @@ function set_signed_in_user(array $user): void
     $_SESSION['user_id'] = (int) $user['user_id'];
     $_SESSION['full_name'] = (string) $user['full_name'];
     $_SESSION['username'] = (string) $user['username'];
+    $_SESSION['profile_picture'] = (string) ($user['profile_picture'] ?? '');
 }
 
 function set_selected_household(int $householdId): bool
@@ -195,7 +196,7 @@ function restore_remembered_login(): bool
 
     [$selector, $validator] = $parts;
     $query = database_connection()->prepare(
-        'SELECT t.token_hash, t.expires_at, u.user_id, u.full_name, u.username
+        'SELECT t.token_hash, t.expires_at, u.user_id, u.full_name, u.username, u.profile_picture
          FROM authTokensTb AS t
          INNER JOIN userTb AS u ON u.user_id = t.user_id
          WHERE t.selector = ?
@@ -241,4 +242,17 @@ function consume_flash_message(): ?array
     $message = $_SESSION['flash_message'];
     unset($_SESSION['flash_message']);
     return $message;
+}
+
+function render_avatar_markup(string $fallbackInitials, ?string $imagePath = null, string $alt = 'Avatar', string $extraClass = '', string $extraStyle = ''): string
+{
+    $img = $imagePath ?? ($_SESSION['profile_picture'] ?? '');
+    $classAttr = 'rs-avatar' . ($extraClass !== '' ? ' ' . $extraClass : '');
+    $styleAttr = $extraStyle !== '' ? ' style="' . htmlspecialchars($extraStyle, ENT_QUOTES, 'UTF-8') . '"' : '';
+
+    if ($img !== '') {
+        return '<div class="' . htmlspecialchars($classAttr, ENT_QUOTES, 'UTF-8') . '"' . $styleAttr . '><img src="' . htmlspecialchars($img, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '"></div>';
+    }
+
+    return '<div class="' . htmlspecialchars($classAttr, ENT_QUOTES, 'UTF-8') . '"' . $styleAttr . '>' . htmlspecialchars($fallbackInitials, ENT_QUOTES, 'UTF-8') . '</div>';
 }

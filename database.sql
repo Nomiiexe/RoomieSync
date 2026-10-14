@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS userTb (
   password_hash VARCHAR(255) NOT NULL,
   full_name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NULL UNIQUE,
+  profile_picture VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(20) NOT NULL DEFAULT 'Active',
   recovery_code_hash VARCHAR(255) NULL

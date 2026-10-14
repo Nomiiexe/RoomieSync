@@ -231,12 +231,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Export Report Handler
-  const exportButtons = document.querySelectorAll('.btn-export-report');
+  // Export Handler (Excel & CSV)
+  const exportButtons = document.querySelectorAll('.btn-export-report, a[href*="export=excel"], a[href*="export=xls"], a[href*="export=csv"]');
   exportButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      showToast('Report export generated! Starting download...', 'success');
+    btn.addEventListener('click', () => {
+      const href = btn.getAttribute('href') || '';
+      const isExcel = href.includes('export=excel') || href.includes('export=xls');
+      showToast(
+        isExcel ? 'Preparing MS Excel report (.xls)... starting download.' : 'Preparing report export... starting download.',
+        'success'
+      );
     });
   });
 });

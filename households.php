@@ -71,6 +71,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $insertCategory->execute();
                     }
 
+                    $defaultExpenseCategories = [
+                        'Grocery' => 'Food, groceries, and daily supermarket essentials',
+                        'Dining Out' => 'Restaurants, takeout, delivery, and dining meals',
+                        'Household Supplies' => 'Cleaning items, toiletries, paper goods, and home supplies',
+                        'Transportation' => 'Fuel, parking, public transit fares, tolls, and rideshares',
+                        'Entertainment' => 'Movies, games, outings, and leisure activities',
+                        'Healthcare' => 'Medications, first aid, clinic visits, and medical items',
+                        'Personal' => 'Personal care, grooming, and miscellaneous individual items',
+                        'Other' => 'General household and miscellaneous shared spending',
+                    ];
+                    $insertExpenseCat = $connection->prepare(
+                        'INSERT INTO expense_categoriesTb (household_id, category_name, description)
+                         VALUES (?, ?, ?)'
+                    );
+                    foreach ($defaultExpenseCategories as $catName => $catDesc) {
+                        $insertExpenseCat->bind_param('iss', $householdId, $catName, $catDesc);
+                        $insertExpenseCat->execute();
+                    }
+
                     $connection->commit();
                     $created = true;
                 } catch (mysqli_sql_exception $exception) {

@@ -224,6 +224,17 @@ p, span, small {
   font-weight: 700;
   font-size: 0.82rem;
   text-transform: uppercase;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.rs-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
 
 .rs-avatar.avatar-lg {
@@ -600,34 +611,126 @@ p, span, small {
   font-weight: 700;
 }
 
+/* ==========================================================================
+   Modals & Modal Scrolling System
+   ========================================================================== */
+
+body.modal-open {
+  overflow: hidden !important;
+}
+
+.modal {
+  overscroll-behavior: contain;
+}
+
+.modal-dialog {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-height: calc(100dvh - 3rem);
+  max-height: calc(100vh - 3rem);
+  margin: 1.5rem auto;
+}
+
+.modal-dialog-centered {
+  min-height: calc(100% - 3rem);
+}
+
+@media (max-width: 576px) {
+  .modal-dialog {
+    max-height: calc(100dvh - 1rem);
+    max-height: calc(100vh - 1rem);
+    margin: 0.5rem auto;
+    width: calc(100% - 1rem);
+  }
+  .modal-dialog-centered {
+    min-height: calc(100% - 1rem);
+  }
+}
+
+.modal-content,
 .modal-content.rs-modal {
   border-radius: var(--rs-radius-lg);
   border: 1px solid var(--rs-border);
   background-color: var(--rs-card-primary);
   box-shadow: 0 16px 40px rgba(59, 41, 34, 0.16);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 3rem);
+  max-height: calc(100vh - 3rem);
   overflow: hidden;
 }
 
+@media (max-width: 576px) {
+  .modal-content,
+  .modal-content.rs-modal {
+    max-height: calc(100dvh - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+}
+
+/* Forms inside modal-content must flex properly so body scrolls and footer stays visible */
+.modal-content > form,
+form.modal-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.modal-header,
 .modal-header.rs-modal-header {
   background-color: var(--rs-card-secondary);
   border-bottom: 1px solid var(--rs-border);
   padding: 1.25rem 1.5rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
-.modal-header.rs-modal-header .modal-title {
+.modal-header.rs-modal-header .modal-title,
+.modal-header .modal-title {
   color: var(--rs-text-heading);
   font-weight: 700;
   font-size: 1.15rem;
 }
 
+.modal-body,
 .modal-body.rs-modal-body {
   padding: 1.5rem;
+  flex: 1 1 auto;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  max-height: 100%;
 }
 
+.modal-footer,
 .modal-footer.rs-modal-footer {
   background-color: var(--rs-bg-navbar);
   border-top: 1px solid var(--rs-border);
   padding: 1rem 1.5rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* Custom sleek scrollbar for modal body */
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--rs-border-input);
+  border-radius: var(--rs-radius-pill);
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--rs-warm-tan);
 }
 
 .dropdown-menu.rs-dropdown {
@@ -798,3 +901,138 @@ p, span, small {
 .cursor-pointer {
   cursor: pointer;
 }
+
+/* ==========================================================================
+   Card Color Identifiers System (Minimalist Left-Border Style)
+   Clean, modern, minimal color identifiers placed exclusively on the left side
+   of cards (e.g. money = green left accent). No harsh light/radial glow effects.
+   ========================================================================== */
+
+/* 1. Money & Financials -> Subtle Emerald Green Left Accent */
+.card-money,
+.card-theme-money,
+.card-color-green,
+.card-indicator-money {
+  --card-accent-color: #10B981;
+  --card-accent-rgb: 16, 185, 129;
+  --card-accent-text: #065F46;
+  --card-accent-bg: #F0FDF4;
+  --card-accent-border: #BBF7D0;
+}
+
+/* 2. Chores & Daily Tasks -> Subtle Blue Left Accent */
+.card-chores,
+.card-theme-chores,
+.card-color-blue,
+.card-indicator-chores {
+  --card-accent-color: #3B82F6;
+  --card-accent-rgb: 59, 130, 246;
+  --card-accent-text: #1D4ED8;
+  --card-accent-bg: #EFF6FF;
+  --card-accent-border: #BFDBFE;
+}
+
+/* 3. Household & Community Members -> Subtle Purple Left Accent */
+.card-household,
+.card-theme-household,
+.card-color-purple,
+.card-indicator-household {
+  --card-accent-color: #8B5CF6;
+  --card-accent-rgb: 139, 92, 246;
+  --card-accent-text: #6D28D9;
+  --card-accent-bg: #F5F3FF;
+  --card-accent-border: #DDD6FE;
+}
+
+/* 4. Announcements & Important Notices -> Subtle Amber Left Accent */
+.card-announcements,
+.card-theme-announcements,
+.card-color-amber,
+.card-indicator-announcements {
+  --card-accent-color: #F59E0B;
+  --card-accent-rgb: 245, 158, 11;
+  --card-accent-text: #B45309;
+  --card-accent-bg: #FFFBEB;
+  --card-accent-border: #FDE68A;
+}
+
+/* 5. Maintenance & Repairs -> Subtle Coral Red Left Accent */
+.card-maintenance,
+.card-theme-maintenance,
+.card-color-red,
+.card-indicator-maintenance {
+  --card-accent-color: #EF4444;
+  --card-accent-rgb: 239, 68, 68;
+  --card-accent-text: #991B1B;
+  --card-accent-bg: #FEF2F2;
+  --card-accent-border: #FECACA;
+}
+
+/* Base Card Styling with Minimal Left Border Identifier */
+.rs-card[class*="card-"],
+.rs-stat-card[class*="card-"],
+.report-stat-card[class*="card-"],
+.report-section-card[class*="card-"],
+.bill-stat-card[class*="card-"],
+.manage-card[class*="card-"],
+.manage-summary-card[class*="card-"],
+.household-hero-card[class*="card-"],
+.rotation-card[class*="card-"] {
+  border-left: 4.5px solid var(--card-accent-color) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* Themed Icons inside color-identified Stat Cards - Clean & minimal */
+.rs-stat-card[class*="card-"] .rs-stat-icon,
+.bill-stat-card[class*="card-"] .bill-stat-icon,
+.report-stat-card[class*="card-"] .report-stat-icon {
+  background-color: var(--card-accent-bg) !important;
+  color: var(--card-accent-text) !important;
+  border: 1px solid var(--card-accent-border) !important;
+  box-shadow: none !important;
+}
+
+/* Themed Section Icons inside color-identified Section Cards */
+.report-section-card[class*="card-"] .report-section-icon,
+.manage-card[class*="card-"] .manage-card-icon {
+  background-color: var(--card-accent-bg) !important;
+  color: var(--card-accent-text) !important;
+  border: 1px solid var(--card-accent-border) !important;
+  box-shadow: none !important;
+}
+
+/* Subtle, gentle hover effect - no harsh colored glow */
+.rs-card[class*="card-"]:hover,
+.rs-stat-card[class*="card-"]:hover,
+.report-stat-card[class*="card-"]:hover,
+.report-section-card[class*="card-"]:hover,
+.bill-stat-card[class*="card-"]:hover,
+.manage-summary-card[class*="card-"]:hover,
+.rotation-card[class*="card-"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(59, 41, 34, 0.09) !important;
+}
+
+/* Pill Indicator Badge for Cards */
+.card-color-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--rs-radius-pill);
+  background-color: var(--card-accent-bg);
+  color: var(--card-accent-text);
+  border: 1px solid var(--card-accent-border);
+}
+
+.card-color-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--card-accent-color);
+}
+

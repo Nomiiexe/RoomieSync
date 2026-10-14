@@ -150,53 +150,94 @@ if ($householdId > 0) {
     $announcementQuery->execute();
     $announcement = $announcementQuery->get_result()->fetch_assoc() ?: null;
 
-    $activityQueries = [
-        [
-            'sql' => 'SELECT p.payment_date AS activity_at, u.username, b.bill_name AS item, p.amount
-                      FROM paymentsTb AS p
-                      INNER JOIN bill_sharesTb AS bs ON bs.bill_share_id = p.bill_share_id
-                      INNER JOIN billsTb AS b ON b.bill_id = bs.bill_id
-                      INNER JOIN userTb AS u ON u.user_id = bs.user_id
-                      WHERE b.household_id = ? ORDER BY p.payment_date DESC LIMIT 5',
-            'type' => 'payment',
-        ],
-        [
-            'sql' => 'SELECT e.created_at AS activity_at, u.username, e.title AS item, e.amount
-                      FROM expenseTb AS e
-                      LEFT JOIN userTb AS u ON u.user_id = e.paid_by
-                      WHERE e.household_id = ? ORDER BY e.created_at DESC LIMIT 5',
-            'type' => 'expense',
-        ],
-        [
-            'sql' => 'SELECT ca.completed_at AS activity_at, u.username, c.chore_name AS item
-                      FROM chore_assignmentsTb AS ca
-                      INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
-                      INNER JOIN userTb AS u ON u.user_id = ca.user_id
-                      WHERE c.household_id = ? AND LOWER(ca.status) = \'completed\'
-                        AND ca.completed_at IS NOT NULL
-                      ORDER BY ca.completed_at DESC LIMIT 5',
-            'type' => 'chore',
-        ],
-    ];
+    try {
+        $activityQueries = [
+            [
+                'sql' => 'SELECT ca.completed_at AS activity_at, u.username, u.full_name, u.profile_picture, c.chore_name AS item, NULL AS amount
+                          FROM chore_assignmentsTb AS ca
+                          INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
+                          INNER JOIN userTb AS u ON u.user_id = ca.user_id
+                          WHERE c.household_id = ? AND LOWER(ca.status) = "completed" AND ca.completed_at IS NOT NULL
+                          ORDER BY ca.completed_at DESC LIMIT 8',
+                'type' => 'chore_completed',
+            ],
+            [
+                'sql' => 'SELECT c.created_at AS activity_at, u.username, u.full_name, u.profile_picture, c.chore_name AS item, NULL AS amount
+                          FROM choresTb AS c
+                          LEFT JOIN userTb AS u ON u.user_id = c.created_by
+                          WHERE c.household_id = ?
+                          ORDER BY c.created_at DESC LIMIT 8',
+                'type' => 'chore_created',
+            ],
+            [
+                'sql' => 'SELECT b.created_at AS activity_at, u.username, u.full_name, u.profile_picture, b.bill_name AS item, b.amount
+                          FROM billsTb AS b
+                          LEFT JOIN userTb AS u ON u.user_id = b.created_by
+                          WHERE b.household_id = ?
+                          ORDER BY b.created_at DESC LIMIT 8',
+                'type' => 'bill_created',
+            ],
+            [
+                'sql' => 'SELECT p.payment_date AS activity_at, u.username, u.full_name, u.profile_picture, b.bill_name AS item, p.amount
+                          FROM paymentsTb AS p
+                          INNER JOIN bill_sharesTb AS bs ON bs.bill_share_id = p.bill_share_id
+                          INNER JOIN billsTb AS b ON b.bill_id = bs.bill_id
+                          LEFT JOIN userTb AS u ON u.user_id = bs.user_id
+                          WHERE b.household_id = ?
+                          ORDER BY p.payment_date DESC, p.payment_id DESC LIMIT 8',
+                'type' => 'payment',
+            ],
+            [
+                'sql' => 'SELECT e.created_at AS activity_at, u.username, u.full_name, u.profile_picture, e.title AS item, e.amount
+                          FROM expenseTb AS e
+                          LEFT JOIN userTb AS u ON u.user_id = e.paid_by
+                          WHERE e.household_id = ?
+                          ORDER BY e.created_at DESC LIMIT 8',
+                'type' => 'expense',
+            ],
+            [
+                'sql' => 'SELECT a.created_at AS activity_at, u.username, u.full_name, u.profile_picture, a.title AS item, NULL AS amount
+                          FROM announceTb AS a
+                          LEFT JOIN userTb AS u ON u.user_id = a.created_by
+                          WHERE a.household_id = ?
+                          ORDER BY a.created_at DESC LIMIT 8',
+                'type' => 'announcement',
+            ],
+            [
+                'sql' => 'SELECT m.reported_at AS activity_at, u.username, u.full_name, u.profile_picture, m.problem_type AS item, NULL AS amount
+                          FROM maintenanceTb AS m
+                          LEFT JOIN userTb AS u ON u.user_id = m.reported_by
+                          WHERE m.household_id = ?
+                          ORDER BY m.reported_at DESC LIMIT 8',
+                'type' => 'maintenance',
+            ],
+        ];
 
-    foreach ($activityQueries as $activityQuery) {
-        $query = $connection->prepare($activityQuery['sql']);
-        $query->bind_param('i', $householdId);
-        $query->execute();
-        $activityResult = $query->get_result();
-        while ($activity = $activityResult->fetch_assoc()) {
-            $activity['type'] = $activityQuery['type'];
-            $activities[] = $activity;
+        foreach ($activityQueries as $actQuery) {
+            $query = $connection->prepare($actQuery['sql']);
+            if ($query) {
+                $query->bind_param('i', $householdId);
+                if ($query->execute()) {
+                    $activityResult = $query->get_result();
+                    while ($activity = $activityResult->fetch_assoc()) {
+                        $activity['type'] = $actQuery['type'];
+                        $activities[] = $activity;
+                    }
+                    $activityResult->free();
+                }
+                $query->close();
+            }
         }
-        $activityResult->free();
-        $query->close();
+        usort(
+            $activities,
+            static fn (array $left, array $right): int =>
+                strtotime((string) ($right['activity_at'] ?? '0')) <=> strtotime((string) ($left['activity_at'] ?? '0'))
+        );
+        $activities = array_slice($activities, 0, 8);
+    } catch (Throwable $e) {
+        error_log('Dashboard activity fetch error: ' . $e->getMessage());
+        $activities = [];
     }
-    usort(
-        $activities,
-        static fn (array $left, array $right): int =>
-            strtotime((string) $right['activity_at']) <=> strtotime((string) $left['activity_at'])
-    );
-    $activities = array_slice($activities, 0, 5);
 }
 
 function dashboard_initials(string $value): string
@@ -265,15 +306,15 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
       <ul class="rs-nav-links" id="navLinksContainer">
         <li><a href="dashboard.php" class="rs-nav-link active"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a></li>
         <li><a href="chores.php" class="rs-nav-link"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Bills page coming soon"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i><span>Household</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Reports page coming soon"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
-        <?php if (strcasecmp($role, 'Admin') === 0): ?><li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
+        <li><a href="bills.php" class="rs-nav-link"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
+        <li><a href="household.php" class="rs-nav-link"><i class="bi bi-house"></i><span>Household</span></a></li>
+        <li><a href="reports.php" class="rs-nav-link"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
+        <?php if (strcasecmp($role, 'Admin') === 0): ?><li><a href="manage.php" class="rs-nav-link"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
       </ul>
 
       <div class="rs-nav-user dropdown">
         <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <div class="rs-avatar"><?= h($avatarText) ?></div>
+          <?= render_avatar_markup($avatarText, null, $displayName) ?>
           <span class="d-none d-md-inline"><?= h($displayName) ?></span>
           <?php if ($role !== ''): ?><span class="role-badge roommate d-none d-xl-inline"><?= h($role) ?></span><?php endif; ?>
         </a>
@@ -315,8 +356,8 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
 
     <div class="row g-3 mb-4">
       <div class="col-sm-6 col-lg-3">
-        <div class="rs-stat-card">
-          <div class="rs-stat-icon" style="background-color: var(--rs-status-amber-bg); color: var(--rs-status-amber-text);"><i class="bi bi-clock-history"></i></div>
+        <div class="rs-stat-card card-chores">
+          <div class="rs-stat-icon"><i class="bi bi-clock-history"></i></div>
           <div class="rs-stat-content">
             <div class="rs-stat-label">Pending Chores</div>
             <div class="rs-stat-value"><?= $activeHousehold ? $pendingChores : '—' ?></div>
@@ -325,8 +366,8 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="rs-stat-card">
-          <div class="rs-stat-icon" style="background-color: var(--rs-accent-light); color: var(--rs-dark-accent);"><i class="bi bi-wallet2"></i></div>
+        <div class="rs-stat-card card-money">
+          <div class="rs-stat-icon"><i class="bi bi-wallet2"></i></div>
           <div class="rs-stat-content">
             <div class="rs-stat-label">Your Balance Due</div>
             <div class="rs-stat-value"><?= $activeHousehold ? h(dashboard_money($balanceDue)) : '—' ?></div>
@@ -335,8 +376,8 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="rs-stat-card">
-          <div class="rs-stat-icon" style="background-color: var(--rs-card-secondary); color: var(--rs-dark-accent);"><i class="bi bi-receipt"></i></div>
+        <div class="rs-stat-card card-money">
+          <div class="rs-stat-icon"><i class="bi bi-receipt"></i></div>
           <div class="rs-stat-content">
             <div class="rs-stat-label">Upcoming Bill</div>
             <div class="rs-stat-value"><?= $upcomingBill ? h(dashboard_money((float) $upcomingBill['amount'])) : '—' ?></div>
@@ -345,8 +386,8 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="rs-stat-card">
-          <div class="rs-stat-icon" style="background-color: var(--rs-accent-light); color: var(--rs-dark-accent);"><i class="bi bi-people-fill"></i></div>
+        <div class="rs-stat-card card-household">
+          <div class="rs-stat-icon"><i class="bi bi-people-fill"></i></div>
           <div class="rs-stat-content">
             <div class="rs-stat-label">Housemates</div>
             <div class="rs-stat-value"><?= $activeHousehold ? $housemateCount : '—' ?></div>
@@ -358,7 +399,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
 
     <div class="row g-4">
       <div class="col-lg-7">
-        <div class="rs-card h-100">
+        <div class="rs-card h-100 card-chores">
           <div class="rs-card-header">
             <div>
               <h5 class="rs-card-title">Pending Chores</h5>
@@ -400,7 +441,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
       </div>
 
       <div class="col-lg-5 d-flex flex-column gap-4">
-        <div class="rs-card">
+        <div class="rs-card card-announcements">
           <div class="rs-card-header mb-2">
             <div>
               <h5 class="rs-card-title">Notice Board</h5>
@@ -419,7 +460,7 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
           <?php endif; ?>
         </div>
 
-        <div class="rs-card flex-grow-1">
+        <div class="rs-card flex-grow-1 card-household">
           <div class="rs-card-header mb-2">
             <div>
               <h5 class="rs-card-title">Recent Activity</h5>
@@ -427,19 +468,39 @@ $role = $activeHousehold ? (string) $activeHousehold['role'] : '';
             </div>
           </div>
           <?php if (!$activities): ?>
-            <div class="p-4 text-center bg-warm-secondary rounded-3"><i class="bi bi-activity fs-3 text-dark-accent"></i><p class="mb-0 mt-2 text-secondary-custom">No recent activity.</p></div>
+            <div class="p-4 text-center bg-warm-secondary rounded-3">
+              <i class="bi bi-activity fs-3 text-dark-accent"></i>
+              <p class="mb-0 mt-2 text-secondary-custom">No recent activity recorded for this household.</p>
+            </div>
           <?php else: ?>
             <div class="d-flex flex-column gap-3">
               <?php foreach ($activities as $activity): ?>
+                <?php
+                  $actorName = (string) (!empty($activity['full_name']) ? $activity['full_name'] : (!empty($activity['username']) ? $activity['username'] : 'Roommate'));
+                  $actorPic = (string) ($activity['profile_picture'] ?? '');
+                  $actType = (string) ($activity['type'] ?? '');
+                  $itemName = (string) ($activity['item'] ?? '');
+                  $actAmount = isset($activity['amount']) && is_numeric($activity['amount']) ? (float) $activity['amount'] : 0.0;
+                ?>
                 <div class="d-flex align-items-start gap-2">
-                  <div class="rs-avatar avatar-sm mt-1"><?= h(dashboard_initials((string) ($activity['username'] ?? ''))) ?></div>
+                  <?= render_avatar_markup(dashboard_initials($actorName), $actorPic !== '' ? $actorPic : null, $actorName, 'avatar-sm mt-1') ?>
                   <div class="flex-grow-1">
-                    <?php if ($activity['type'] === 'payment'): ?>
-                      <p class="small mb-0"><strong><?= h((string) $activity['username']) ?></strong> paid <strong><?= h(dashboard_money((float) $activity['amount'])) ?></strong> for <?= h((string) $activity['item']) ?>.</p>
-                    <?php elseif ($activity['type'] === 'expense'): ?>
-                      <p class="small mb-0"><strong><?= h((string) ($activity['username'] ?? 'Unknown user')) ?></strong> logged <?= h((string) $activity['item']) ?> for <strong><?= h(dashboard_money((float) $activity['amount'])) ?></strong>.</p>
+                    <?php if ($actType === 'chore_completed'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> completed chore <strong><?= h($itemName) ?></strong>.</p>
+                    <?php elseif ($actType === 'chore_created'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> added new chore <strong><?= h($itemName) ?></strong>.</p>
+                    <?php elseif ($actType === 'bill_created'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> added bill <strong><?= h($itemName) ?></strong> for <strong><?= h(dashboard_money($actAmount)) ?></strong>.</p>
+                    <?php elseif ($actType === 'payment'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> paid <strong><?= h(dashboard_money($actAmount)) ?></strong> for <?= h($itemName) ?>.</p>
+                    <?php elseif ($actType === 'expense'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> logged expense <strong><?= h($itemName) ?></strong> for <strong><?= h(dashboard_money($actAmount)) ?></strong>.</p>
+                    <?php elseif ($actType === 'announcement'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> posted announcement <strong><?= h($itemName) ?></strong>.</p>
+                    <?php elseif ($actType === 'maintenance'): ?>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> reported issue <strong><?= h($itemName) ?></strong>.</p>
                     <?php else: ?>
-                      <p class="small mb-0"><strong><?= h((string) $activity['username']) ?></strong> completed <strong><?= h((string) $activity['item']) ?></strong>.</p>
+                      <p class="small mb-0"><strong><?= h($actorName) ?></strong> recorded <strong><?= h($itemName) ?></strong>.</p>
                     <?php endif; ?>
                     <small class="text-secondary-custom" style="font-size: 0.75rem;"><?= h(dashboard_date_time((string) $activity['activity_at'])) ?></small>
                   </div>

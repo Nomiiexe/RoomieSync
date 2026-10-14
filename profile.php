@@ -16,8 +16,50 @@ if ($selectedHouseholdId === null) {
 $errorMessage = '';
 $notice = consume_flash_message();
 
+function profile_process_avatar_upload(array $file, int $userId, ?string $oldPath, string &$err): ?string
+{
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $err = 'Image upload error code: ' . $file['error'];
+        return null;
+    }
+    if ((int) $file['size'] > 2 * 1024 * 1024) {
+        $err = 'Image file must be 2MB or smaller.';
+        return null;
+    }
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file((string) $file['tmp_name']);
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'image/gif' => 'gif',
+    ];
+    if (!isset($allowed[$mime])) {
+        $err = 'Please upload a valid image file (JPG, PNG, WebP, or GIF).';
+        return null;
+    }
+    $ext = $allowed[$mime];
+    $dir = __DIR__ . '/uploads/profiles/';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    $newFile = 'user_' . $userId . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $dest = $dir . $newFile;
+    if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
+        $err = 'Could not save uploaded image file.';
+        return null;
+    }
+    if ($oldPath && str_starts_with($oldPath, 'uploads/profiles/')) {
+        $oldFile = __DIR__ . '/' . $oldPath;
+        if (is_file($oldFile)) {
+            @unlink($oldFile);
+        }
+    }
+    return 'uploads/profiles/' . $newFile;
+}
+
 $profileQuery = $connection->prepare(
-    'SELECT user_id, username, full_name, email, password_hash, status, created_at
+    'SELECT user_id, username, full_name, email, password_hash, status, created_at, profile_picture
      FROM userTb
      WHERE user_id = ?
      LIMIT 1'
@@ -33,63 +75,111 @@ if (!$profile) {
 $formFullName = (string) $profile['full_name'];
 $formUsername = (string) $profile['username'];
 $formEmail = (string) ($profile['email'] ?? '');
+$formProfilePic = (string) ($profile['profile_picture'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = is_string($_POST['action'] ?? null) ? $_POST['action'] : '';
 
     if (!valid_csrf_token($_POST['csrf_token'] ?? null)) {
         $errorMessage = 'This form expired. Please try again.';
+    } elseif ($action === 'upload_avatar') {
+        if (isset($_FILES['profile_picture']) && is_array($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $err = '';
+            $uploadedPath = profile_process_avatar_upload($_FILES['profile_picture'], $userId, $formProfilePic, $err);
+            if ($uploadedPath === null) {
+                $errorMessage = $err;
+            } else {
+                $update = $connection->prepare('UPDATE userTb SET profile_picture = ? WHERE user_id = ?');
+                $update->bind_param('si', $uploadedPath, $userId);
+                $update->execute();
+
+                $_SESSION['profile_picture'] = $uploadedPath;
+                $_SESSION['flash_message'] = ['message' => 'Your profile picture was updated successfully.'];
+                redirect_to('profile.php');
+            }
+        } else {
+            $errorMessage = 'Please select a valid image file from your device.';
+        }
+    } elseif ($action === 'remove_avatar') {
+        if ($formProfilePic !== '' && str_starts_with($formProfilePic, 'uploads/profiles/')) {
+            $oldFile = __DIR__ . '/' . $formProfilePic;
+            if (is_file($oldFile)) {
+                @unlink($oldFile);
+            }
+        }
+        $update = $connection->prepare('UPDATE userTb SET profile_picture = NULL WHERE user_id = ?');
+        $update->bind_param('i', $userId);
+        $update->execute();
+
+        $_SESSION['profile_picture'] = '';
+        $_SESSION['flash_message'] = ['message' => 'Your profile picture was removed and reset to default.'];
+        redirect_to('profile.php');
     } elseif ($action === 'update_profile') {
         $formFullName = trim(is_string($_POST['full_name'] ?? null) ? $_POST['full_name'] : '');
         $formUsername = trim(is_string($_POST['username'] ?? null) ? $_POST['username'] : '');
         $formEmail = trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
 
-        if ($formFullName === '' || strlen($formFullName) > 100) {
-            $errorMessage = 'Enter your full name with up to 100 characters.';
-        } elseif (!preg_match('/\A[A-Za-z0-9_.-]{3,50}\z/', $formUsername)) {
-            $errorMessage = 'Choose a username with 3-50 letters, numbers, dots, underscores, or hyphens.';
-        } elseif ($formEmail !== '' && (strlen($formEmail) > 100 || filter_var($formEmail, FILTER_VALIDATE_EMAIL) === false)) {
-            $errorMessage = 'Enter a valid email address or leave it blank.';
-        } else {
-            $usernameCheck = $connection->prepare(
-                'SELECT user_id FROM userTb WHERE username = ? AND user_id <> ? LIMIT 1'
-            );
-            $usernameCheck->bind_param('si', $formUsername, $userId);
-            $usernameCheck->execute();
-
-            if ($usernameCheck->get_result()->fetch_assoc()) {
-                $errorMessage = 'That username is already in use.';
+        // Handle optional profile picture upload within edit profile modal
+        $uploadedPicPath = $formProfilePic;
+        if (isset($_FILES['profile_picture']) && is_array($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $err = '';
+            $newPath = profile_process_avatar_upload($_FILES['profile_picture'], $userId, $formProfilePic, $err);
+            if ($newPath === null) {
+                $errorMessage = $err;
             } else {
-                $emailTaken = false;
-                if ($formEmail !== '') {
-                    $emailCheck = $connection->prepare(
-                        'SELECT user_id FROM userTb WHERE email = ? AND user_id <> ? LIMIT 1'
-                    );
-                    $emailCheck->bind_param('si', $formEmail, $userId);
-                    $emailCheck->execute();
-                    $emailTaken = (bool) $emailCheck->get_result()->fetch_assoc();
-                }
+                $uploadedPicPath = $newPath;
+            }
+        }
 
-                if ($emailTaken) {
-                    $errorMessage = 'That email address is already in use.';
+        if ($errorMessage === '') {
+            if ($formFullName === '' || strlen($formFullName) > 100) {
+                $errorMessage = 'Enter your full name with up to 100 characters.';
+            } elseif (!preg_match('/\A[A-Za-z0-9_.-]{3,50}\z/', $formUsername)) {
+                $errorMessage = 'Choose a username with 3-50 letters, numbers, dots, underscores, or hyphens.';
+            } elseif ($formEmail !== '' && (strlen($formEmail) > 100 || filter_var($formEmail, FILTER_VALIDATE_EMAIL) === false)) {
+                $errorMessage = 'Enter a valid email address or leave it blank.';
+            } else {
+                $usernameCheck = $connection->prepare(
+                    'SELECT user_id FROM userTb WHERE username = ? AND user_id <> ? LIMIT 1'
+                );
+                $usernameCheck->bind_param('si', $formUsername, $userId);
+                $usernameCheck->execute();
+
+                if ($usernameCheck->get_result()->fetch_assoc()) {
+                    $errorMessage = 'That username is already in use.';
                 } else {
-                    if ($formEmail === '') {
-                        $update = $connection->prepare(
-                            'UPDATE userTb SET full_name = ?, username = ?, email = NULL WHERE user_id = ?'
+                    $emailTaken = false;
+                    if ($formEmail !== '') {
+                        $emailCheck = $connection->prepare(
+                            'SELECT user_id FROM userTb WHERE email = ? AND user_id <> ? LIMIT 1'
                         );
-                        $update->bind_param('ssi', $formFullName, $formUsername, $userId);
-                    } else {
-                        $update = $connection->prepare(
-                            'UPDATE userTb SET full_name = ?, username = ?, email = ? WHERE user_id = ?'
-                        );
-                        $update->bind_param('sssi', $formFullName, $formUsername, $formEmail, $userId);
+                        $emailCheck->bind_param('si', $formEmail, $userId);
+                        $emailCheck->execute();
+                        $emailTaken = (bool) $emailCheck->get_result()->fetch_assoc();
                     }
-                    $update->execute();
 
-                    $_SESSION['full_name'] = $formFullName;
-                    $_SESSION['username'] = $formUsername;
-                    $_SESSION['flash_message'] = ['message' => 'Your profile was updated successfully.'];
-                    redirect_to('profile.php');
+                    if ($emailTaken) {
+                        $errorMessage = 'That email address is already in use.';
+                    } else {
+                        if ($formEmail === '') {
+                            $update = $connection->prepare(
+                                'UPDATE userTb SET full_name = ?, username = ?, email = NULL, profile_picture = ? WHERE user_id = ?'
+                            );
+                            $update->bind_param('sssi', $formFullName, $formUsername, $uploadedPicPath, $userId);
+                        } else {
+                            $update = $connection->prepare(
+                                'UPDATE userTb SET full_name = ?, username = ?, email = ?, profile_picture = ? WHERE user_id = ?'
+                            );
+                            $update->bind_param('ssssi', $formFullName, $formUsername, $formEmail, $uploadedPicPath, $userId);
+                        }
+                        $update->execute();
+
+                        $_SESSION['full_name'] = $formFullName;
+                        $_SESSION['username'] = $formUsername;
+                        $_SESSION['profile_picture'] = $uploadedPicPath;
+                        $_SESSION['flash_message'] = ['message' => 'Your profile was updated successfully.'];
+                        redirect_to('profile.php');
+                    }
                 }
             }
         }
@@ -153,7 +243,7 @@ $household = $householdQuery->get_result()->fetch_assoc() ?: null;
 
 if ($household) {
     $membersQuery = $connection->prepare(
-        'SELECT u.full_name, u.username, u.email, hm.role, hm.joined_at
+        'SELECT u.full_name, u.username, u.email, u.profile_picture, hm.role, hm.joined_at
          FROM householdmembersTb AS hm
          INNER JOIN userTb AS u ON u.user_id = hm.user_id
          WHERE hm.household_id = ?
@@ -208,14 +298,20 @@ $role = $household ? (string) $household['role'] : '';
       <ul class="rs-nav-links" id="navLinksContainer">
         <li><a href="dashboard.php" class="rs-nav-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a></li>
         <li><a href="chores.php" class="rs-nav-link"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Bills page coming soon"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i><span>Household</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Reports page coming soon"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
-        <?php if (strcasecmp($role, 'Admin') === 0): ?><li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
+        <li><a href="bills.php" class="rs-nav-link"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
+        <li><a href="household.php" class="rs-nav-link"><i class="bi bi-house"></i><span>Household</span></a></li>
+        <li><a href="reports.php" class="rs-nav-link"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
+        <?php if (strcasecmp($role, 'Admin') === 0): ?><li><a href="manage.php" class="rs-nav-link"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
       </ul>
       <div class="rs-nav-user dropdown">
         <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <div class="rs-avatar"><?= h(profile_initials($displayName)) ?></div>
+          <div class="rs-avatar">
+            <?php if ($formProfilePic !== ''): ?>
+              <img src="<?= h($formProfilePic) ?>" alt="<?= h($displayName) ?>">
+            <?php else: ?>
+              <?= h(profile_initials($displayName)) ?>
+            <?php endif; ?>
+          </div>
           <span class="d-none d-md-inline"><?= h($displayName) ?></span>
         </a>
         <ul class="dropdown-menu dropdown-menu-end rs-dropdown">
@@ -243,9 +339,25 @@ $role = $household ? (string) $household['role'] : '';
 
     <section class="rs-card mb-4 p-4 p-md-5" style="background: linear-gradient(135deg, #F3E8DD 0%, #EAD8C7 100%);">
       <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-center gap-4">
-        <div class="rs-avatar avatar-lg" style="background-color: var(--rs-card-primary); color: var(--rs-dark-accent);"><?= h(profile_initials($formFullName)) ?></div>
-        <div class="text-center text-sm-start">
-          <h2 class="h3 fw-bold mb-1"><?= h($formFullName) ?></h2>
+        <div class="position-relative">
+          <div class="rs-avatar avatar-lg shadow-sm" style="background-color: var(--rs-card-primary); color: var(--rs-dark-accent);">
+            <?php if ($formProfilePic !== ''): ?>
+              <img src="<?= h($formProfilePic) ?>" alt="<?= h($formFullName) ?>" id="heroAvatarImage">
+            <?php else: ?>
+              <span id="heroAvatarInitials"><?= h(profile_initials($formFullName)) ?></span>
+            <?php endif; ?>
+          </div>
+          <button type="button" class="btn btn-sm btn-rs-primary rounded-circle position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center shadow-sm" style="width: 28px; height: 28px; border: 2px solid #fff;" data-bs-toggle="modal" data-bs-target="#changePhotoModal" title="Change Profile Picture" aria-label="Change Profile Picture">
+            <i class="bi bi-camera-fill" style="font-size: 0.75rem;"></i>
+          </button>
+        </div>
+        <div class="text-center text-sm-start flex-grow-1">
+          <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-sm-start gap-2 mb-1">
+            <h2 class="h3 fw-bold mb-0"><?= h($formFullName) ?></h2>
+            <button type="button" class="btn btn-sm btn-rs-outline py-0 px-2" style="font-size: 0.78rem;" data-bs-toggle="modal" data-bs-target="#changePhotoModal">
+              <i class="bi bi-camera me-1"></i><?= $formProfilePic !== '' ? 'Change Photo' : 'Upload Photo' ?>
+            </button>
+          </div>
           <div class="d-flex flex-wrap justify-content-center justify-content-sm-start align-items-center gap-2">
             <span class="rs-badge rs-badge-active"><span class="rs-badge-dot"></span><?= h($role !== '' ? $role : 'No household') ?></span>
             <small class="text-secondary-custom">Member since <?= h(profile_date((string) $profile['created_at'])) ?></small>
@@ -256,7 +368,7 @@ $role = $household ? (string) $household['role'] : '';
 
     <div class="row g-4">
       <div class="col-lg-6">
-        <section class="rs-card h-100">
+        <section class="rs-card h-100 card-household">
           <div class="rs-card-header">
             <div><h2 class="rs-card-title">Personal Information</h2><div class="rs-card-subtitle">Update your personal details</div></div>
           </div>
@@ -295,7 +407,7 @@ $role = $household ? (string) $household['role'] : '';
       </div>
 
       <div class="col-lg-6 d-flex flex-column gap-4">
-        <section class="rs-card">
+        <section class="rs-card card-household">
           <div class="rs-card-header mb-3">
             <div><h2 class="rs-card-title">Household Information</h2><div class="rs-card-subtitle">Details about your current household</div></div>
           </div>
@@ -322,7 +434,7 @@ $role = $household ? (string) $household['role'] : '';
           <?php endif; ?>
         </section>
 
-        <section class="rs-card flex-grow-1">
+        <section class="rs-card flex-grow-1 card-household">
           <div class="rs-card-header mb-3">
             <div><h2 class="rs-card-title">Household Members</h2><div class="rs-card-subtitle">People in your current household</div></div>
           </div>
@@ -330,7 +442,13 @@ $role = $household ? (string) $household['role'] : '';
             <div class="d-flex flex-column">
               <?php foreach ($members as $member): ?>
                 <div class="d-flex align-items-center gap-2 py-2 border-bottom">
-                  <div class="rs-avatar avatar-sm"><?= h(profile_initials((string) $member['full_name'])) ?></div>
+                  <div class="rs-avatar avatar-sm">
+                    <?php if (!empty($member['profile_picture'])): ?>
+                      <img src="<?= h((string) $member['profile_picture']) ?>" alt="<?= h((string) $member['full_name']) ?>">
+                    <?php else: ?>
+                      <?= h(profile_initials((string) $member['full_name'])) ?>
+                    <?php endif; ?>
+                  </div>
                   <div class="flex-grow-1">
                     <div class="small fw-semibold"><?= h((string) $member['full_name']) ?></div>
                     <div class="text-secondary-custom" style="font-size: 0.72rem;"><?= h((string) $member['username']) ?><?= !empty($member['email']) ? ' · ' . h((string) $member['email']) : '' ?></div>
@@ -351,16 +469,75 @@ $role = $household ? (string) $household['role'] : '';
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content rs-modal">
         <div class="modal-header rs-modal-header"><h2 class="modal-title h5" id="editProfileModalLabel">Edit Profile</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-        <form method="POST" action="profile.php">
+        <form method="POST" action="profile.php" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="update_profile">
           <div class="modal-body rs-modal-body">
             <div class="mb-3"><label for="profileFullName" class="form-label">Full name</label><input type="text" class="form-control" id="profileFullName" name="full_name" value="<?= h($formFullName) ?>" maxlength="100" required></div>
             <div class="mb-3"><label for="profileUsername" class="form-label">Username</label><input type="text" class="form-control" id="profileUsername" name="username" value="<?= h($formUsername) ?>" pattern="[A-Za-z0-9_.-]{3,50}" maxlength="50" required></div>
-            <div class="mb-0"><label for="profileEmail" class="form-label">Email address</label><input type="email" class="form-control" id="profileEmail" name="email" value="<?= h($formEmail) ?>" maxlength="100"><div class="form-text">Leave blank if you do not want to store an email.</div></div>
+            <div class="mb-3"><label for="profileEmail" class="form-label">Email address</label><input type="email" class="form-control" id="profileEmail" name="email" value="<?= h($formEmail) ?>" maxlength="100"><div class="form-text">Leave blank if you do not want to store an email.</div></div>
+            <div class="mb-0">
+              <label for="editProfilePicInput" class="form-label">Profile picture <span class="optional-label">(optional)</span></label>
+              <input type="file" class="form-control" id="editProfilePicInput" name="profile_picture" accept="image/jpeg,image/png,image/webp,image/gif">
+              <div class="form-text">Upload a JPG, PNG, WebP, or GIF up to 2MB to update your picture.</div>
+            </div>
           </div>
           <div class="modal-footer rs-modal-footer"><button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-rs-primary">Save Changes</button></div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Profile Picture Modal -->
+  <div class="modal fade" id="changePhotoModal" tabindex="-1" aria-labelledby="changePhotoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rs-modal">
+        <div class="modal-header rs-modal-header">
+          <h2 class="modal-title h5" id="changePhotoModalLabel"><i class="bi bi-camera me-2 text-dark-accent"></i>Profile Picture</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form method="POST" action="profile.php" enctype="multipart/form-data" id="changePhotoForm">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="action" value="upload_avatar">
+          <div class="modal-body rs-modal-body">
+            <div class="d-flex flex-column align-items-center justify-content-center p-3 mb-3 bg-warm-secondary rounded-3 border">
+              <div class="rs-avatar avatar-lg shadow-sm mb-2" id="avatarModalPreviewWrapper" style="background-color: var(--rs-card-primary); color: var(--rs-dark-accent); width: 88px; height: 88px; font-size: 2rem;">
+                <?php if ($formProfilePic !== ''): ?>
+                  <img src="<?= h($formProfilePic) ?>" alt="Preview" id="avatarModalPreviewImg">
+                <?php else: ?>
+                  <span id="avatarModalPreviewText"><?= h(profile_initials($formFullName)) ?></span>
+                <?php endif; ?>
+              </div>
+              <small class="text-secondary-custom" id="avatarUploadPrompt"><?= $formProfilePic !== '' ? 'Current profile picture' : 'Default avatar (no picture uploaded)' ?></small>
+            </div>
+
+            <div class="mb-3">
+              <label for="modalProfilePicInput" class="form-label fw-bold text-secondary-custom small text-uppercase">Choose Image From Device</label>
+              <input type="file" name="profile_picture" id="modalProfilePicInput" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif" required>
+              <div class="form-text">Supports JPG, PNG, WebP, and GIF up to 2MB. Square images display best.</div>
+            </div>
+          </div>
+          <div class="modal-footer rs-modal-footer d-flex justify-content-between align-items-center">
+            <?php if ($formProfilePic !== ''): ?>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="btnTriggerRemoveAvatar">
+                <i class="bi bi-trash3 me-1"></i> Remove Photo
+              </button>
+            <?php else: ?>
+              <span></span>
+            <?php endif; ?>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-rs-primary"><i class="bi bi-check2 me-1"></i> Save Picture</button>
+            </div>
+          </div>
+        </form>
+
+        <?php if ($formProfilePic !== ''): ?>
+          <form method="POST" action="profile.php" id="removeAvatarForm" class="d-none">
+            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="action" value="remove_avatar">
+          </form>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -412,6 +589,36 @@ $role = $household ? (string) $household['role'] : '';
         }, 200);
       });
     });
+
+    // Avatar live preview
+    const picInput = document.getElementById('modalProfilePicInput');
+    const previewWrapper = document.getElementById('avatarModalPreviewWrapper');
+    const uploadPrompt = document.getElementById('avatarUploadPrompt');
+    if (picInput && previewWrapper) {
+      picInput.addEventListener('change', function () {
+        const file = this.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            previewWrapper.innerHTML = '<img src="' + e.target.result + '" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">';
+            if (uploadPrompt) {
+              uploadPrompt.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check2-circle me-1"></i> Ready to save (' + file.name + ')</span>';
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    const removeBtn = document.getElementById('btnTriggerRemoveAvatar');
+    const removeForm = document.getElementById('removeAvatarForm');
+    if (removeBtn && removeForm) {
+      removeBtn.addEventListener('click', function () {
+        if (confirm('Are you sure you want to remove your custom profile picture and revert to initials?')) {
+          removeForm.submit();
+        }
+      });
+    }
   </script>
 </body>
 </html>

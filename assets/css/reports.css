@@ -1,0 +1,521 @@
+/* RoomieSync - Reports Module Styles */
+
+.rs-eyebrow {
+  color: var(--rs-dark-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.text-main {
+  color: var(--rs-text-heading) !important;
+}
+
+/* Print-only Header (hidden on screen) */
+.report-print-header {
+  display: none;
+}
+
+/* Stat Cards */
+.report-stat-card {
+  border-radius: var(--rs-radius-md);
+  border: 1px solid var(--rs-border);
+  background: var(--rs-card-primary);
+  padding: 1.25rem 1.35rem;
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  box-shadow: var(--rs-shadow-subtle);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
+}
+
+.report-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--rs-shadow-hover);
+}
+
+.report-stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--rs-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.55rem;
+  flex-shrink: 0;
+}
+
+.report-stat-icon.expenses {
+  background: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  border: 1px solid var(--rs-border);
+}
+
+.report-stat-icon.bills {
+  background: var(--rs-status-amber-bg);
+  color: var(--rs-status-amber-text);
+  border: 1px solid var(--rs-status-amber-border);
+}
+
+.report-stat-icon.chores {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.report-stat-icon.maintenance {
+  background: #FFF1F2;
+  color: #BE123C;
+  border: 1px solid #FECDD3;
+}
+
+.report-stat-icon.activity {
+  background: var(--rs-status-green-bg);
+  color: var(--rs-status-green-text);
+  border: 1px solid var(--rs-status-green-border);
+}
+
+.report-stat-val {
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--rs-text-heading);
+}
+
+.report-stat-lbl {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--rs-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.report-stat-sub {
+  font-size: 0.78rem;
+  color: var(--rs-text-secondary);
+  margin-top: 0.15rem;
+}
+
+/* Filter Card */
+.report-filter-card {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  box-shadow: var(--rs-shadow-subtle);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.report-date-input {
+  background-color: var(--rs-bg-main);
+  border: 1.5px solid var(--rs-border);
+  color: var(--rs-text-heading);
+  border-radius: var(--rs-radius-sm);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.report-date-input:focus {
+  background-color: var(--rs-white);
+  border-color: var(--rs-warm-tan);
+  box-shadow: 0 0 0 0.2rem rgba(210, 166, 121, 0.25);
+  color: var(--rs-text-heading);
+}
+
+.report-filter-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--rs-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+  display: block;
+}
+
+.report-preset-btn {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--rs-text-secondary);
+  background: var(--rs-bg-main);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-pill);
+  padding: 0.35rem 0.75rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.report-preset-btn:hover {
+  background: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  border-color: var(--rs-border);
+}
+
+.report-preset-btn.active {
+  background: var(--rs-dark-accent);
+  color: var(--rs-white);
+  border-color: var(--rs-dark-accent);
+}
+
+/* Section Cards */
+.report-section-card {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  box-shadow: var(--rs-shadow-subtle);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  overflow: hidden;
+  transition: box-shadow 0.25s ease;
+}
+
+.report-section-card:hover {
+  box-shadow: var(--rs-shadow-hover);
+}
+
+.report-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.report-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.report-section-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--rs-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.report-section-icon.expenses { background: var(--rs-accent-light); color: var(--rs-dark-accent); }
+.report-section-icon.bills { background: var(--rs-status-amber-bg); color: var(--rs-status-amber-text); }
+.report-section-icon.chores { background: #EFF6FF; color: #1D4ED8; }
+.report-section-icon.maintenance { background: #FFF1F2; color: #BE123C; }
+.report-section-icon.activity { background: var(--rs-status-green-bg); color: var(--rs-status-green-text); }
+.report-section-icon.members { background: #F5F3FF; color: #6D28D9; }
+
+/* Sub KPI Mini Pills */
+.report-kpi-pill {
+  background: var(--rs-card-secondary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-md);
+  padding: 0.65rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.report-kpi-pill-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--rs-text-heading);
+  line-height: 1.2;
+}
+
+.report-kpi-pill-lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rs-text-secondary);
+  margin-top: 0.15rem;
+}
+
+/* Category & Payer Badges */
+.report-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--rs-radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--rs-card-secondary);
+  border: 1px solid var(--rs-border);
+  color: var(--rs-text-body);
+}
+
+.report-tag strong {
+  color: var(--rs-text-heading);
+}
+
+/* Activity Stat Grid Box */
+.activity-box {
+  background: var(--rs-card-secondary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-md);
+  padding: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform 0.2s ease, background 0.2s ease;
+  height: 100%;
+}
+
+.activity-box:hover {
+  background: var(--rs-accent-light);
+  transform: translateY(-2px);
+}
+
+.activity-box-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rs-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  background: var(--rs-white);
+  color: var(--rs-dark-accent);
+  border: 1px solid var(--rs-border);
+  flex-shrink: 0;
+}
+
+.activity-box-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--rs-text-heading);
+}
+
+.activity-box-lbl {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--rs-text-secondary);
+  margin-top: 0.2rem;
+}
+
+/* Tables */
+.report-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-md);
+  background: var(--rs-card-primary);
+}
+
+.report-table {
+  --bs-table-bg: transparent;
+  --bs-table-border-color: var(--rs-border);
+  width: 100%;
+  margin-bottom: 0;
+  vertical-align: middle;
+}
+
+.report-table thead th {
+  background: var(--rs-card-secondary);
+  border-bottom: 1.5px solid var(--rs-border);
+  color: var(--rs-text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.95rem 1rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.report-table tbody td {
+  color: var(--rs-text-body);
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--rs-border);
+  font-size: 0.88rem;
+}
+
+.report-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.report-table tbody tr:hover {
+  background-color: rgba(243, 232, 221, 0.4);
+}
+
+/* Status Badges */
+.rs-badge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--rs-radius-pill);
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 700;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+
+.rs-badge .badge-dot {
+  border-radius: 50%;
+  height: 6px;
+  width: 6px;
+}
+
+.rs-badge-paid,
+.rs-badge-completed,
+.rs-badge-resolved {
+  background: var(--rs-status-green-bg);
+  border-color: var(--rs-status-green-border);
+  color: var(--rs-status-green-text) !important;
+}
+.rs-badge-paid .badge-dot,
+.rs-badge-completed .badge-dot,
+.rs-badge-resolved .badge-dot { background: var(--rs-status-green-text); }
+
+.rs-badge-unpaid,
+.rs-badge-pending {
+  background: #F1EEEB;
+  border-color: #DED6D0;
+  color: #6B625C !important;
+}
+.rs-badge-unpaid .badge-dot,
+.rs-badge-pending .badge-dot { background: #8D8178; }
+
+.rs-badge-due-soon,
+.rs-badge-in-progress {
+  background: #FEF3C7;
+  border-color: #FCD34D;
+  color: #92400E !important;
+}
+.rs-badge-due-soon .badge-dot,
+.rs-badge-in-progress .badge-dot { background: #B45309; }
+
+.rs-badge-overdue,
+.rs-badge-open {
+  background: var(--rs-status-red-bg);
+  border-color: var(--rs-status-red-border);
+  color: var(--rs-status-red-text) !important;
+}
+.rs-badge-overdue .badge-dot,
+.rs-badge-open .badge-dot { background: var(--rs-status-red-text); }
+
+/* Member avatar pill */
+.member-avatar-pill {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1px solid var(--rs-border);
+}
+
+/* Empty State */
+.report-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--rs-text-secondary);
+}
+
+.report-empty-state i {
+  font-size: 2.25rem;
+  opacity: 0.6;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* ==================================================
+   PRINT STYLES
+   ================================================== */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Hide navigation, buttons, interactive elements */
+  .rs-navbar-wrapper,
+  .report-filter-card,
+  .btn,
+  .rs-mobile-toggle,
+  .toast-container-custom,
+  .rs-toast,
+  .dropdown-menu,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Display printable header */
+  .report-print-header {
+    display: block !important;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #333333;
+  }
+
+  .report-print-header h1 {
+    font-size: 20pt !important;
+    margin-bottom: 0.2rem !important;
+    color: #000000 !important;
+  }
+
+  .report-print-header .print-meta {
+    font-size: 10pt !important;
+    color: #555555 !important;
+  }
+
+  /* Clean up cards */
+  .report-stat-card,
+  .report-section-card,
+  .activity-box {
+    box-shadow: none !important;
+    border: 1px solid #CCCCCC !important;
+    background: #FFFFFF !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .report-section-card {
+    margin-bottom: 1.5rem !important;
+  }
+
+  /* Ensure tables print with borders and clear text */
+  .report-table-wrapper {
+    border: 1px solid #CCCCCC !important;
+    overflow: visible !important;
+  }
+
+  .report-table {
+    border-collapse: collapse !important;
+  }
+
+  .report-table thead th {
+    background: #EEEEEE !important;
+    color: #000000 !important;
+    border-bottom: 2px solid #CCCCCC !important;
+  }
+
+  .report-table tbody td {
+    color: #000000 !important;
+    border-bottom: 1px solid #E0E0E0 !important;
+  }
+
+  .report-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .rs-badge {
+    border: 1px solid #888888 !important;
+    color: #000000 !important;
+    background: transparent !important;
+  }
+}

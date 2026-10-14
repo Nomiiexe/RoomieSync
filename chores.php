@@ -257,14 +257,14 @@ $defaultDueDate = date('Y-m-d');
       <ul class="rs-nav-links" id="navLinksContainer">
         <li><a href="dashboard.php" class="rs-nav-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a></li>
         <li><a href="chores.php" class="rs-nav-link active"><i class="bi bi-check2-square"></i><span>Chores</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Bills page coming soon"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Household page coming soon"><i class="bi bi-house"></i><span>Household</span></a></li>
-        <li><a href="#" class="rs-nav-link" aria-disabled="true" title="Reports page coming soon"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
-        <?php if ($isAdmin): ?><li><a href="#" class="rs-nav-link" aria-disabled="true" title="Manage page coming soon"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
+        <li><a href="bills.php" class="rs-nav-link"><i class="bi bi-receipt"></i><span>Bills</span></a></li>
+        <li><a href="household.php" class="rs-nav-link"><i class="bi bi-house"></i><span>Household</span></a></li>
+        <li><a href="reports.php" class="rs-nav-link"><i class="bi bi-bar-chart"></i><span>Reports</span></a></li>
+        <?php if ($isAdmin): ?><li><a href="manage.php" class="rs-nav-link"><i class="bi bi-sliders"></i><span>Manage</span></a></li><?php endif; ?>
       </ul>
       <div class="rs-nav-user dropdown">
         <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <div class="rs-avatar"><?= h($avatarText) ?></div>
+          <?= render_avatar_markup($avatarText, null, $displayName) ?>
           <span class="d-none d-md-inline"><?= h($displayName) ?></span>
           <?php if ($role !== ''): ?><span class="role-badge roommate d-none d-xl-inline"><?= h($role) ?></span><?php endif; ?>
         </a>
@@ -365,7 +365,7 @@ $defaultDueDate = date('Y-m-d');
         <div class="row g-3">
           <?php foreach ($rotationChores as $rotationChore): ?>
             <?php $memberNames = array_map(static fn (array $member): string => (string) $member['full_name'], $rotationChore['members']); $currentIndex = null; foreach ($rotationChore['members'] as $index => $member) { if ((int) $member['user_id'] === (int) $rotationChore['current_user_id']) { $currentIndex = $index; break; } } $nextMember = $rotationChore['members'] !== [] ? $rotationChore['members'][($currentIndex === null ? 0 : ($currentIndex + 1) % count($rotationChore['members']))] : null; ?>
-            <div class="col-12"><article class="rotation-card"><div class="d-flex flex-column flex-md-row justify-content-between gap-3"><div><h2 class="h5 fw-bold mb-1"><?= h((string) $rotationChore['chore_name']) ?></h2><p class="small text-secondary-custom mb-0"><?= h((string) ($rotationChore['category_name'] ?: 'Uncategorized')) ?> · <?= h((string) $rotationChore['frequency']) ?></p></div><div class="text-md-end"><span class="small text-secondary-custom d-block">Next due</span><strong><?= h(chore_display_date($rotationChore['next_due'] !== null ? (string) $rotationChore['next_due'] : null)) ?></strong></div></div><div class="rotation-flow mt-3"><div><span class="rotation-label">Current</span><strong><?= h((string) ($rotationChore['current_name'] ?: 'Unassigned')) ?></strong></div><i class="bi bi-arrow-right text-dark-accent"></i><div><span class="rotation-label">Next</span><strong><?= h((string) ($nextMember['full_name'] ?? 'Unassigned')) ?></strong></div></div><div class="rotation-sequence mt-3"><span class="rotation-label">Stored rotation order</span><div class="d-flex flex-wrap gap-2"><?php foreach ($rotationChore['members'] as $member): ?><span class="rotation-chip"><?= (int) $member['rotation_order'] ?>. <?= h((string) $member['full_name']) ?></span><?php endforeach; ?></div></div></article></div>
+            <div class="col-12"><article class="rotation-card card-chores"><div class="d-flex flex-column flex-md-row justify-content-between gap-3"><div><h2 class="h5 fw-bold mb-1"><?= h((string) $rotationChore['chore_name']) ?></h2><p class="small text-secondary-custom mb-0"><?= h((string) ($rotationChore['category_name'] ?: 'Uncategorized')) ?> · <?= h((string) $rotationChore['frequency']) ?></p></div><div class="text-md-end"><span class="small text-secondary-custom d-block">Next due</span><strong><?= h(chore_display_date($rotationChore['next_due'] !== null ? (string) $rotationChore['next_due'] : null)) ?></strong></div></div><div class="rotation-flow mt-3"><div><span class="rotation-label">Current</span><strong><?= h((string) ($rotationChore['current_name'] ?: 'Unassigned')) ?></strong></div><i class="bi bi-arrow-right text-dark-accent"></i><div><span class="rotation-label">Next</span><strong><?= h((string) ($nextMember['full_name'] ?? 'Unassigned')) ?></strong></div></div><div class="rotation-sequence mt-3"><span class="rotation-label">Stored rotation order</span><div class="d-flex flex-wrap gap-2"><?php foreach ($rotationChore['members'] as $member): ?><span class="rotation-chip"><?= (int) $member['rotation_order'] ?>. <?= h((string) $member['full_name']) ?></span><?php endforeach; ?></div></div></article></div>
           <?php endforeach; ?>
           <?php if ($rotationChores === []): ?><div class="col-12 text-center py-5"><i class="bi bi-arrow-repeat chore-empty-icon"></i><p class="fw-semibold mb-1">No rotation chores found</p><p class="text-secondary-custom mb-0">Rotation assignments for this household will appear here.</p></div><?php endif; ?>
         </div>

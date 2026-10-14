@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-function chores_pdo(): PDO
+function app_pdo(): PDO
 {
     static $connection = null;
 
@@ -28,3 +28,9 @@ function chores_pdo(): PDO
         throw new RuntimeException('The database is temporarily unavailable.');
     }
 }
+
+function chores_pdo(): PDO
+{
+    return app_pdo();
+}
+

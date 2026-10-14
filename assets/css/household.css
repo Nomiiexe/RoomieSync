@@ -1,0 +1,224 @@
+/* Household Page Styles */
+
+.rs-eyebrow {
+  color: var(--rs-dark-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.text-main {
+  color: var(--rs-text-heading) !important;
+}
+
+/* Household Overview Card */
+.household-hero-card {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  box-shadow: var(--rs-shadow-subtle);
+  overflow: hidden;
+  transition: box-shadow 0.25s ease;
+}
+
+.household-hero-card:hover {
+  box-shadow: var(--rs-shadow-hover);
+}
+
+.household-banner-img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  background-color: var(--rs-card-secondary);
+}
+
+.household-banner-placeholder {
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(135deg, #F3E8DD 0%, #EAD8C7 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--rs-dark-accent);
+}
+
+.household-banner-placeholder i {
+  font-size: 3.5rem;
+  opacity: 0.85;
+}
+
+/* Join Code Box */
+.join-code-box {
+  background-color: var(--rs-card-secondary);
+  border: 1.5px dashed var(--rs-border);
+  border-radius: var(--rs-radius-md);
+  padding: 0.85rem 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.join-code-val {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--rs-dark-accent);
+}
+
+/* Detail Info Rows */
+.household-meta-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.household-meta-item:last-child {
+  margin-bottom: 0;
+}
+
+.household-meta-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rs-radius-sm);
+  background-color: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Member Table and Cards */
+.member-table {
+  --bs-table-bg: transparent;
+  --bs-table-border-color: var(--rs-border);
+  width: 100%;
+  margin-bottom: 0;
+  vertical-align: middle;
+}
+
+.member-table thead th {
+  background: var(--rs-card-secondary);
+  border-bottom: 1px solid var(--rs-border);
+  color: var(--rs-text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  padding: 0.9rem 1rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.member-table tbody td {
+  color: var(--rs-text-body);
+  padding: 1rem 1rem;
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.member-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.member-table tbody tr:hover {
+  background-color: rgba(243, 232, 221, 0.35);
+}
+
+.member-table tbody tr.is-you {
+  background-color: rgba(254, 244, 230, 0.55);
+}
+
+/* Member Mobile Cards */
+.member-mobile-card {
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-md);
+  background: var(--rs-card-primary);
+  padding: 1rem 1.15rem;
+  margin-bottom: 0.75rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.member-mobile-card.is-you {
+  background-color: #FFFBF7;
+  border-color: var(--rs-warm-tan);
+}
+
+.member-mobile-card:hover {
+  box-shadow: var(--rs-shadow-subtle);
+}
+
+/* "You" Indicator Tag */
+.badge-you {
+  background-color: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  border: 1px solid var(--rs-border);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--rs-radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Copy feedback tooltip/toast */
+.copy-btn-feedback {
+  transition: all 0.2s ease;
+}
+
+/* Activity timeline items */
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1.15rem;
+  border-bottom: 1px solid var(--rs-border);
+  transition: background-color 0.2s ease;
+}
+
+.activity-item:last-child {
+  border-bottom: 0;
+}
+
+.activity-item:hover {
+  background-color: rgba(248, 242, 235, 0.45);
+}
+
+.activity-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--rs-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.activity-icon-badge.payment {
+  background-color: var(--rs-status-green-bg);
+  color: var(--rs-status-green-text);
+  border: 1px solid var(--rs-status-green-border);
+}
+
+.activity-icon-badge.expense {
+  background-color: var(--rs-status-amber-bg);
+  color: var(--rs-status-amber-text);
+  border: 1px solid var(--rs-status-amber-border);
+}
+
+.activity-icon-badge.chore {
+  background-color: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  border: 1px solid var(--rs-border);
+}
+
+.activity-icon-badge.member {
+  background-color: #E0E7FF;
+  color: #3730A3;
+  border: 1px solid #C7D2FE;
+}
+
