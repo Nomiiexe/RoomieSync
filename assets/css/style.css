@@ -1036,3 +1036,459 @@ form.modal-content {
   background-color: var(--card-accent-color);
 }
 
+/* ==================================================
+   PAGINATION COMPONENT STYLES
+   Consistent, accessible, responsive pagination
+   ================================================== */
+.rs-pagination-container {
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--rs-border);
+}
+
+.rs-pagination-info {
+  font-size: 0.85rem;
+  color: var(--rs-text-secondary);
+}
+
+.rs-page-size-wrapper .form-select {
+  width: auto;
+  min-width: 110px;
+  border-color: var(--rs-border-input);
+  background-color: var(--rs-card-primary);
+  color: var(--rs-text-heading);
+  font-weight: 500;
+  border-radius: var(--rs-radius-sm);
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  padding-left: 0.65rem;
+  font-size: 0.82rem;
+}
+
+.rs-page-size-wrapper .form-select:focus {
+  border-color: var(--rs-warm-tan);
+  box-shadow: 0 0 0 3px rgba(210, 166, 121, 0.25);
+}
+
+.rs-pagination-list {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rs-pagination-list .page-item .rs-page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 0.55rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--rs-text-body);
+  background-color: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+.rs-pagination-list .page-item .rs-page-prev,
+.rs-pagination-list .page-item .rs-page-next {
+  padding: 0 0.85rem;
+  font-weight: 600;
+  gap: 0.25rem;
+}
+
+.rs-pagination-list .page-item .rs-page-link:hover {
+  background-color: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+  border-color: var(--rs-warm-tan);
+}
+
+.rs-pagination-list .page-item.active .rs-page-link {
+  background-color: var(--rs-warm-tan);
+  border-color: var(--rs-warm-tan);
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(210, 166, 121, 0.35);
+}
+
+.rs-pagination-list .page-item.disabled .rs-page-link {
+  color: var(--rs-text-secondary);
+  opacity: 0.45;
+  background-color: transparent;
+  border-color: var(--rs-border);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.rs-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 34px;
+  color: var(--rs-text-secondary);
+  font-weight: 700;
+}
+
+@media (max-width: 576px) {
+  .rs-pagination-container {
+    padding-top: 0.75rem;
+  }
+  .rs-pagination-list .page-item .rs-page-link {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+    padding: 0 0.4rem;
+  }
+}
+
+/* ==================================================
+   LOGIN PAGE - MODERN LIVING SPACE VISUAL LAYOUT
+   ================================================== */
+.rs-login-card {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  box-shadow: 0 16px 40px rgba(138, 98, 70, 0.08);
+  overflow: hidden;
+  max-width: 940px;
+  width: 100%;
+}
+
+.rs-login-visual-pane {
+  position: relative;
+  background: #231915;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100%;
+}
+
+.rs-login-visual-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rs-login-card:hover .rs-login-visual-img {
+  transform: scale(1.03);
+}
+
+.rs-login-visual-overlay {
+  position: relative;
+  z-index: 2;
+  padding: 2.25rem 2rem;
+  background: linear-gradient(180deg, rgba(35, 25, 21, 0.05) 0%, rgba(35, 25, 21, 0.65) 50%, rgba(35, 25, 21, 0.92) 100%);
+  color: #FFFFFF;
+}
+
+.rs-login-visual-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--rs-radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-bottom: 0.85rem;
+}
+
+.rs-login-visual-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin-bottom: 0.45rem;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.rs-login-visual-desc {
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.5;
+  margin-bottom: 1.15rem;
+}
+
+.rs-login-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rs-login-feature-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--rs-radius-pill);
+  padding: 0.2rem 0.55rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Mobile Banner */
+.rs-login-mobile-banner {
+  position: relative;
+  height: 140px;
+  width: 100%;
+  overflow: hidden;
+  background: #231915;
+}
+
+.rs-login-mobile-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.rs-login-mobile-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(35, 25, 21, 0.15) 0%, rgba(35, 25, 21, 0.6) 100%);
+  display: flex;
+  align-items: flex-end;
+  padding: 0.85rem 1.25rem;
+  color: #FFFFFF;
+}
+
+.rs-login-form-pane {
+  padding: 2.75rem 2.25rem;
+}
+
+@media (max-width: 767.98px) {
+  .rs-login-form-pane {
+    padding: 1.75rem 1.35rem;
+  }
+}
+
+/* ==================================================
+   SQUARED HUB CARDS & OPENABLE PAGE SYSTEM
+   ================================================== */
+.rs-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.rs-hub-card {
+  background: var(--rs-card-primary);
+  border: 1.5px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.25s ease;
+  min-height: 250px;
+  box-shadow: var(--rs-shadow-subtle);
+  position: relative;
+  overflow: hidden;
+}
+
+.rs-hub-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--rs-border);
+  transition: height 0.25s ease;
+}
+
+.rs-hub-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(74, 55, 40, 0.1);
+  border-color: var(--rs-warm-tan);
+  color: inherit;
+}
+
+.rs-hub-card.card-blue::before { background: #3B82F6; }
+.rs-hub-card.card-amber::before { background: #F59E0B; }
+.rs-hub-card.card-purple::before { background: #8B5CF6; }
+.rs-hub-card.card-green::before { background: #10B981; }
+.rs-hub-card.card-rose::before { background: #F43F5E; }
+
+.rs-hub-card:hover::before {
+  height: 6px;
+}
+
+.rs-hub-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.rs-hub-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--rs-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.rs-hub-card:hover .rs-hub-icon {
+  transform: scale(1.08);
+}
+
+.rs-hub-icon.blue { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.rs-hub-icon.amber { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+.rs-hub-icon.purple { background: #F5F3FF; color: #6D28D9; border: 1px solid #DDD6FE; }
+.rs-hub-icon.green { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+.rs-hub-icon.rose { background: #FFF1F2; color: #BE123C; border: 1px solid #FECDD3; }
+
+.rs-hub-pill {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--rs-radius-pill);
+  background: var(--rs-card-secondary);
+  border: 1px solid var(--rs-border);
+  color: var(--rs-text-secondary);
+  white-space: nowrap;
+}
+
+.rs-hub-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+}
+
+.rs-hub-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--rs-text-heading);
+  margin-bottom: 0.35rem;
+  letter-spacing: -0.01em;
+}
+
+.rs-hub-metric {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--rs-text-heading);
+  line-height: 1.2;
+  margin-bottom: 0.45rem;
+}
+
+.rs-hub-desc {
+  font-size: 0.86rem;
+  color: var(--rs-text-secondary);
+  line-height: 1.45;
+  margin-bottom: 0;
+}
+
+.rs-hub-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rs-border);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--rs-dark-accent);
+}
+
+.rs-hub-footer i {
+  transition: transform 0.25s ease;
+}
+
+.rs-hub-card:hover .rs-hub-footer i {
+  transform: translateX(5px);
+}
+
+/* Back navigation & view switcher toolbar */
+.rs-view-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.rs-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--rs-dark-accent);
+  text-decoration: none;
+  padding: 0.45rem 1rem;
+  border-radius: var(--rs-radius-pill);
+  border: 1px solid var(--rs-border);
+  background: var(--rs-card-primary);
+  transition: all 0.2s ease;
+}
+
+.rs-btn-back:hover {
+  background: var(--rs-dark-accent);
+  color: var(--rs-white);
+  border-color: var(--rs-dark-accent);
+}
+
+.rs-view-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rs-view-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--rs-text-secondary);
+  background: var(--rs-card-secondary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-pill);
+  padding: 0.4rem 0.85rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.rs-view-pill-btn:hover {
+  background: var(--rs-white);
+  color: var(--rs-text-heading);
+}
+
+.rs-view-pill-btn.active {
+  background: var(--rs-dark-accent);
+  color: var(--rs-white);
+  border-color: var(--rs-dark-accent);
+}
+
+

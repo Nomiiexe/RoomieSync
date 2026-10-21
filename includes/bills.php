@@ -178,9 +178,6 @@ function bill_display_status(string $status, ?string $dueDate): array
         if ($diffDays < 0) {
             return ['label' => 'Overdue', 'badge' => 'rs-bill-status-overdue'];
         }
-        if ($diffDays <= 3) {
-            return ['label' => 'Due Soon', 'badge' => 'rs-bill-status-due-soon'];
-        }
     }
 
     return ['label' => 'Unpaid', 'badge' => 'rs-bill-status-unpaid'];

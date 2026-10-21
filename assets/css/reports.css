@@ -444,6 +444,7 @@
   /* Hide navigation, buttons, interactive elements */
   .rs-navbar-wrapper,
   .report-filter-card,
+  .rs-view-toolbar,
   .btn,
   .rs-mobile-toggle,
   .toast-container-custom,
@@ -475,6 +476,7 @@
   /* Clean up cards */
   .report-stat-card,
   .report-section-card,
+  .rs-hub-card,
   .activity-box {
     box-shadow: none !important;
     border: 1px solid #CCCCCC !important;

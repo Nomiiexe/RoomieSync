@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/chores.php';
+require_once __DIR__ . '/includes/pagination.php';
 
 if (!restore_remembered_login()) {
     redirect_to('login.php');
@@ -20,8 +21,13 @@ $userEmail = '';
 $categories = [];
 $members = [];
 $chores = [];
+$pagedChores = [];
+$chorePagination = null;
 $rotationChores = [];
+$pagedRotationChores = [];
+$rotationPagination = null;
 $history = [];
+$historyPagination = null;
 $rotationByChore = [];
 
 $tab = is_string($_GET['tab'] ?? null) ? $_GET['tab'] : 'my';
@@ -124,6 +130,8 @@ try {
             }
             $chores[] = $chore;
         }
+        $chorePagination = get_pagination_params(count($chores), 10, [5, 10, 20, 50], 'page', 'per_page');
+        $pagedChores = array_slice($chores, $chorePagination['offset'], $chorePagination['per_page']);
     } elseif ($tab === 'rotation') {
         $rotationSearchClause = '';
         $rotationParams = ['household_id' => $householdId];
@@ -186,6 +194,8 @@ try {
             }
         }
         $rotationChores = array_values($rotationChores);
+        $rotationPagination = get_pagination_params(count($rotationChores), 10, [5, 10, 20, 50], 'page', 'per_page');
+        $pagedRotationChores = array_slice($rotationChores, $rotationPagination['offset'], $rotationPagination['per_page']);
     } else {
         $historyParams = ['household_id' => $householdId];
         $historySearch = '';
@@ -194,6 +204,19 @@ try {
             $historyParams['search_chore'] = '%' . $search . '%';
             $historyParams['search_member'] = '%' . $search . '%';
         }
+        $historyCountQuery = $connection->prepare(
+            "SELECT COUNT(*)
+             FROM chore_assignmentsTb AS ca
+             INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
+             INNER JOIN userTb AS u ON u.user_id = ca.user_id
+             WHERE c.household_id = :household_id
+               AND LOWER(ca.status) = 'completed'
+               AND ca.completed_at IS NOT NULL{$historySearch}"
+        );
+        $historyCountQuery->execute($historyParams);
+        $totalHistory = (int) $historyCountQuery->fetchColumn();
+        $historyPagination = get_pagination_params($totalHistory, 10, [5, 10, 20, 50], 'page', 'per_page');
+
         $historyQuery = $connection->prepare(
             "SELECT c.chore_name, u.full_name AS completed_by, ca.completed_at, ca.status
              FROM chore_assignmentsTb AS ca
@@ -202,7 +225,8 @@ try {
              WHERE c.household_id = :household_id
                AND LOWER(ca.status) = 'completed'
                AND ca.completed_at IS NOT NULL{$historySearch}
-             ORDER BY ca.completed_at DESC"
+             ORDER BY ca.completed_at DESC
+             LIMIT " . (int) $historyPagination['per_page'] . " OFFSET " . (int) $historyPagination['offset']
         );
         $historyQuery->execute($historyParams);
         $history = $historyQuery->fetchAll();
@@ -334,7 +358,7 @@ $defaultDueDate = date('Y-m-d');
           <table class="table align-middle chore-table mb-0">
             <thead><tr><th>Chore</th><th>Assigned To</th><th>Due Date</th><th>Frequency</th><th>Status</th><?php if ($isAdmin): ?><th class="text-end">Manage</th><?php endif; ?></tr></thead>
             <tbody>
-            <?php foreach ($chores as $chore): ?>
+            <?php foreach ($pagedChores as $chore): ?>
               <?php $displayStatus = (string) $chore['display_status']; $choreId = (int) $chore['chore_id']; $selectedRotation = $rotationByChore[$choreId] ?? []; ?>
               <tr>
                 <td data-label="Chore"><div class="fw-semibold text-main"><?= h((string) $chore['chore_name']) ?></div><?php if ((string) ($chore['description'] ?? '') !== ''): ?><small class="text-secondary-custom"><?= h((string) $chore['description']) ?></small><?php endif; ?></td>
@@ -361,16 +385,19 @@ $defaultDueDate = date('Y-m-d');
             </tbody>
           </table>
         </div>
+        <?= $chorePagination ? render_pagination($chorePagination, ['tab' => 'my', 'search' => $search, 'status' => $statusFilter]) : '' ?>
       <?php elseif ($tab === 'rotation'): ?>
         <div class="row g-3">
-          <?php foreach ($rotationChores as $rotationChore): ?>
+          <?php foreach ($pagedRotationChores as $rotationChore): ?>
             <?php $memberNames = array_map(static fn (array $member): string => (string) $member['full_name'], $rotationChore['members']); $currentIndex = null; foreach ($rotationChore['members'] as $index => $member) { if ((int) $member['user_id'] === (int) $rotationChore['current_user_id']) { $currentIndex = $index; break; } } $nextMember = $rotationChore['members'] !== [] ? $rotationChore['members'][($currentIndex === null ? 0 : ($currentIndex + 1) % count($rotationChore['members']))] : null; ?>
             <div class="col-12"><article class="rotation-card card-chores"><div class="d-flex flex-column flex-md-row justify-content-between gap-3"><div><h2 class="h5 fw-bold mb-1"><?= h((string) $rotationChore['chore_name']) ?></h2><p class="small text-secondary-custom mb-0"><?= h((string) ($rotationChore['category_name'] ?: 'Uncategorized')) ?> · <?= h((string) $rotationChore['frequency']) ?></p></div><div class="text-md-end"><span class="small text-secondary-custom d-block">Next due</span><strong><?= h(chore_display_date($rotationChore['next_due'] !== null ? (string) $rotationChore['next_due'] : null)) ?></strong></div></div><div class="rotation-flow mt-3"><div><span class="rotation-label">Current</span><strong><?= h((string) ($rotationChore['current_name'] ?: 'Unassigned')) ?></strong></div><i class="bi bi-arrow-right text-dark-accent"></i><div><span class="rotation-label">Next</span><strong><?= h((string) ($nextMember['full_name'] ?? 'Unassigned')) ?></strong></div></div><div class="rotation-sequence mt-3"><span class="rotation-label">Stored rotation order</span><div class="d-flex flex-wrap gap-2"><?php foreach ($rotationChore['members'] as $member): ?><span class="rotation-chip"><?= (int) $member['rotation_order'] ?>. <?= h((string) $member['full_name']) ?></span><?php endforeach; ?></div></div></article></div>
           <?php endforeach; ?>
           <?php if ($rotationChores === []): ?><div class="col-12 text-center py-5"><i class="bi bi-arrow-repeat chore-empty-icon"></i><p class="fw-semibold mb-1">No rotation chores found</p><p class="text-secondary-custom mb-0">Rotation assignments for this household will appear here.</p></div><?php endif; ?>
         </div>
+        <?= $rotationPagination ? render_pagination($rotationPagination, ['tab' => 'rotation', 'search' => $search]) : '' ?>
       <?php else: ?>
         <div class="table-responsive"><table class="table align-middle chore-table mb-0"><thead><tr><th>Chore</th><th>Completed By</th><th>Completed Date</th><th>Status</th></tr></thead><tbody><?php foreach ($history as $entry): ?><tr><td data-label="Chore" class="fw-semibold text-main"><?= h((string) $entry['chore_name']) ?></td><td data-label="Completed By"><?= h((string) $entry['completed_by']) ?></td><td data-label="Completed Date"><?= h(chore_display_date((string) $entry['completed_at'])) ?></td><td data-label="Status"><span class="chore-status rs-chore-status-completed"><span class="status-dot"></span>Completed</span></td></tr><?php endforeach; ?><?php if ($history === []): ?><tr><td colspan="4" class="text-center py-5"><i class="bi bi-clock-history chore-empty-icon"></i><p class="fw-semibold mb-1">No completed chores yet</p><p class="text-secondary-custom mb-0">Completed assignments will be kept here as history.</p></td></tr><?php endif; ?></tbody></table></div>
+        <?= $historyPagination ? render_pagination($historyPagination, ['tab' => 'history', 'search' => $search]) : '' ?>
       <?php endif; ?>
     </div>
   </main>

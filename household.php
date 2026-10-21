@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/pagination.php';
 
 if (!restore_remembered_login()) {
     redirect_to('login.php');
@@ -75,10 +76,14 @@ if ($householdId !== null) {
                 hm.joined_at ASC"
         );
         $membersQuery->execute(['household_id' => $householdId]);
-        $members = $membersQuery->fetchAll();
+        $allMembers = $membersQuery->fetchAll();
+        $totalMembersCount = count($allMembers);
+
+        $memberPagination = get_pagination_params($totalMembersCount, 6, [4, 6, 10, 20], 'mem_page', 'mem_per_page');
+        $members = array_slice($allMembers, (int) $memberPagination['offset'], (int) $memberPagination['per_page']);
 
         // 3. Fetch Recent Activities in this household
-        $activities = [];
+        $allActivities = [];
 
         // Activity 1: Payments
         $paymentActQuery = $connection->prepare(
@@ -89,11 +94,11 @@ if ($householdId !== null) {
              INNER JOIN userTb AS u ON u.user_id = bs.user_id
              WHERE b.household_id = :household_id
              ORDER BY p.payment_date DESC
-             LIMIT 8'
+             LIMIT 20'
         );
         $paymentActQuery->execute(['household_id' => $householdId]);
         foreach ($paymentActQuery->fetchAll() as $row) {
-            $activities[] = $row;
+            $allActivities[] = $row;
         }
 
         // Activity 2: Expenses
@@ -103,11 +108,11 @@ if ($householdId !== null) {
              LEFT JOIN userTb AS u ON u.user_id = e.paid_by
              WHERE e.household_id = :household_id
              ORDER BY e.created_at DESC
-             LIMIT 8'
+             LIMIT 20'
         );
         $expenseActQuery->execute(['household_id' => $householdId]);
         foreach ($expenseActQuery->fetchAll() as $row) {
-            $activities[] = $row;
+            $allActivities[] = $row;
         }
 
         // Activity 3: Completed Chores
@@ -120,11 +125,11 @@ if ($householdId !== null) {
                AND LOWER(ca.status) = 'completed'
                AND ca.completed_at IS NOT NULL
              ORDER BY ca.completed_at DESC
-             LIMIT 8"
+             LIMIT 20"
         );
         $choreActQuery->execute(['household_id' => $householdId]);
         foreach ($choreActQuery->fetchAll() as $row) {
-            $activities[] = $row;
+            $allActivities[] = $row;
         }
 
         // Activity 4: Joined Members
@@ -134,18 +139,21 @@ if ($householdId !== null) {
              INNER JOIN userTb AS u ON u.user_id = hm.user_id
              WHERE hm.household_id = :household_id
              ORDER BY hm.joined_at DESC
-             LIMIT 8"
+             LIMIT 20"
         );
         $joinedActQuery->execute(['household_id' => $householdId]);
         foreach ($joinedActQuery->fetchAll() as $row) {
-            $activities[] = $row;
+            $allActivities[] = $row;
         }
 
         // Sort all activity chronologically descending
-        usort($activities, static function (array $left, array $right): int {
+        usort($allActivities, static function (array $left, array $right): int {
             return strtotime((string) $right['activity_at']) <=> strtotime((string) $left['activity_at']);
         });
-        $activities = array_slice($activities, 0, 15);
+        $totalActivitiesCount = count($allActivities);
+
+        $actPagination = get_pagination_params($totalActivitiesCount, 6, [5, 6, 10, 20], 'act_page', 'act_per_page');
+        $activities = array_slice($allActivities, (int) $actPagination['offset'], (int) $actPagination['per_page']);
     } else {
         // Logged-in user is not a member of the session household ID
         unset($_SESSION['household_id']);
@@ -386,7 +394,7 @@ $notice = consume_flash_message();
                 <small class="text-secondary-custom">List of everyone living in this household</small>
               </div>
               <span class="badge bg-white text-dark-accent border px-2 py-1 small fw-bold">
-                <?= count($members) ?> <?= count($members) === 1 ? 'Member' : 'Members' ?>
+                <?= $totalMembersCount ?> <?= $totalMembersCount === 1 ? 'Member' : 'Members' ?>
               </span>
             </div>
 
@@ -481,10 +489,15 @@ $notice = consume_flash_message();
                 </div>
               <?php endforeach; ?>
             </div>
+
+            <!-- Members Pagination -->
+            <div class="px-4 pb-2">
+              <?= render_pagination($memberPagination, [], 'householdMembers') ?>
+            </div>
           </section>
 
           <!-- 2. Recent Activity Card (Positioned below Members) -->
-          <section class="rs-card p-0 overflow-hidden">
+          <section class="rs-card p-0 overflow-hidden" id="recentActivity">
             <div class="p-4 border-bottom bg-warm-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
               <div>
                 <h2 class="h5 fw-bold text-main mb-0">
@@ -492,9 +505,9 @@ $notice = consume_flash_message();
                 </h2>
                 <small class="text-secondary-custom">Latest updates recorded across your household</small>
               </div>
-              <?php if (!empty($activities)): ?>
+              <?php if (!empty($totalActivitiesCount)): ?>
                 <span class="badge bg-white text-dark-accent border px-2 py-1 small fw-bold">
-                  <?= count($activities) ?> Updates
+                  <?= $totalActivitiesCount ?> Updates
                 </span>
               <?php endif; ?>
             </div>
@@ -540,6 +553,10 @@ $notice = consume_flash_message();
                     </div>
                   </div>
                 <?php endforeach; ?>
+              </div>
+              <!-- Activity Pagination -->
+              <div class="px-4 pb-2">
+                <?= render_pagination($actPagination, [], 'recentActivity') ?>
               </div>
             <?php endif; ?>
           </section>

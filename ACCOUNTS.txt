@@ -1,0 +1,61 @@
+====================================================================
+             ROOMIESYNC - USER LOGIN CREDENTIALS                    
+====================================================================
+System Sign-In URL : http://127.0.0.1:8000/login.php
+Default Password   : Password123!
+Generated On       : October 21, 2026, 4:07 PM
+====================================================================
+
+NOTE: All accounts below have been standardized with the password:
+      Password123!
+
+--------------------------------------------------------------------
+HOUSEHOLD 1: "Malued" (Primary & Fully Populated Household)
+Contains full dataset: Expenses, Split Bills, Chores, Maintenance & Logs
+--------------------------------------------------------------------
+• Username: Prince          | Password: Password123!   | Role: Admin   
+  Name    : Prince Gian Fernandez | Email   : (No email specified)
+
+• Username: Jonats          | Password: Password123!   | Role: Member  
+  Name    : Jonathan Villasenor | Email   : jonathanpersonalvillasenorz@gmail.com
+
+• Username: john_doe        | Password: Password123!   | Role: Member  
+  Name    : John Doe        | Email   : john@example.com
+
+• Username: sofia_ramos     | Password: Password123!   | Role: Member  
+  Name    : Sofia Ramos     | Email   : sofia.ramos@roomiesync.test
+
+--------------------------------------------------------------------
+HOUSEHOLD 2: "Malued" (Secondary Household)
+--------------------------------------------------------------------
+• Username: princetest      | Password: Password123!   | Role: Admin   
+  Name    : princetest      | Email   : princetest@gmail.com
+
+• Username: giantest        | Password: Password123!   | Role: Member  
+  Name    : giantest        | Email   : giantest@gmail.com
+
+--------------------------------------------------------------------
+HOUSEHOLD 3: "Gian House"
+--------------------------------------------------------------------
+• Username: Gian123         | Password: Password123!   | Role: Admin   
+  Name    : Gian            | Email   : Gian@gmail.com
+
+--------------------------------------------------------------------
+INDEPENDENT / UNATTACHED ACCOUNTS
+--------------------------------------------------------------------
+• Username: Jonathan        | Password: Password123!   | Role: None
+  Name    : Jonathan Villasenor | Email   : jonathanpersonalvillasenor@gmail.com
+
+====================================================================
+QUICK LOGIN RECOMMENDATIONS:
+1. To test as Household Admin (Malued with full data & Manage access):
+   Username: Prince
+   Password: Password123!
+
+2. To test as a Roommate / Regular Member (Chores, Bills, Shared Expenses):
+   Username: Jonats   (or: john_doe, sofia_ramos)
+   Password: Password123!
+
+3. Join Code for Household "Malued" (ID 1) if joining from another user:
+   Join Code: 69F0DB7A
+====================================================================

@@ -279,3 +279,21 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3500);
 }
+
+// Global Pagination Page-Size Change Handler
+function rsHandlePageSizeChange(selectElement) {
+  if (!selectElement) return;
+  const newSize = selectElement.value;
+  const pageKey = selectElement.getAttribute('data-page-key') || 'page';
+  const perPageKey = selectElement.getAttribute('data-per-page-key') || 'per_page';
+  const anchor = selectElement.getAttribute('data-anchor') || '';
+
+  const url = new URL(window.location.href);
+  url.searchParams.set(perPageKey, newSize);
+  url.searchParams.set(pageKey, '1'); // Reset to page 1 on per-page change
+  if (anchor) {
+    url.hash = anchor.replace(/^#/, '');
+  }
+  window.location.href = url.toString();
+}
+window.rsHandlePageSizeChange = rsHandlePageSizeChange;

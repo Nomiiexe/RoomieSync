@@ -63,63 +63,104 @@ $notice = isset($_GET['deleted']) && $_GET['deleted'] === '1'
   <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="d-flex flex-column min-vh-100">
-  <main class="container d-flex flex-column align-items-center justify-content-center flex-grow-1 py-5">
-    <section class="rs-card p-4 p-md-5" style="max-width: 440px; width: 100%;">
-      <div class="text-center mb-4">
-        <div class="rs-brand-icon mx-auto mb-3" style="width: 56px; height: 56px; font-size: 1.65rem;">
-          <i class="bi bi-house-heart-fill"></i>
+  <main class="container d-flex flex-column align-items-center justify-content-center flex-grow-1 py-4 py-md-5">
+    <div class="rs-login-card">
+      <!-- Mobile-only Visual Header: compact banner that shows the cozy living space without overwhelming the form -->
+      <div class="rs-login-mobile-banner d-block d-md-none">
+        <img src="assets/images/roomiesync-home.jpg" alt="RoomieSync modern living space">
+        <div class="rs-login-mobile-overlay">
+          <div>
+            <span class="badge bg-white text-dark-accent fw-bold px-2 py-1 mb-1" style="font-size: 0.72rem;"><i class="bi bi-house-heart-fill me-1"></i> RoomieSync</span>
+            <div class="small fw-semibold text-white">Shared Living &bull; Harmonious Home</div>
+          </div>
         </div>
-        <h1 class="h3 fw-bold mb-1">Welcome Back</h1>
-        <p class="text-secondary-custom small mb-0">Sign in to manage your household with RoomieSync</p>
       </div>
 
-      <?php if ($notice): ?>
-        <div class="alert alert-success" role="status"><?= h((string) $notice['message']) ?></div>
-      <?php endif; ?>
-      <?php if ($errorMessage !== ''): ?>
-        <div class="alert alert-danger" role="alert"><?= h($errorMessage) ?></div>
-      <?php endif; ?>
-
-      <form action="login.php" method="POST" id="loginForm">
-        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-        <div class="mb-3">
-          <label for="loginUsername" class="form-label">Username</label>
-          <div class="input-group">
-            <span class="input-group-text"><i class="bi bi-person"></i></span>
-            <input type="text" class="form-control" id="loginUsername" name="username" value="<?= h($username) ?>" autocomplete="username" maxlength="50" required>
+      <div class="row g-0">
+        <!-- Desktop & Tablet Side Visual Pane -->
+        <div class="col-md-5 col-lg-5 d-none d-md-block">
+          <div class="rs-login-visual-pane">
+            <img src="assets/images/roomiesync-home.jpg" alt="Comfortable shared home living room" class="rs-login-visual-img">
+            <div class="rs-login-visual-overlay">
+              <div class="rs-login-visual-badge">
+                <i class="bi bi-house-heart-fill"></i> RoomieSync Living
+              </div>
+              <h2 class="rs-login-visual-title">Welcome to your shared home.</h2>
+              <p class="rs-login-visual-desc">Synchronize chores, track household expenses, manage bills, and live harmoniously together.</p>
+              <div class="rs-login-feature-pills">
+                <span class="rs-login-feature-pill"><i class="bi bi-check2-circle me-1"></i> Chores</span>
+                <span class="rs-login-feature-pill"><i class="bi bi-wallet2 me-1"></i> Expenses</span>
+                <span class="rs-login-feature-pill"><i class="bi bi-receipt me-1"></i> Bills</span>
+                <span class="rs-login-feature-pill"><i class="bi bi-people me-1"></i> Roommates</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <label for="loginPassword" class="form-label mb-0">Password</label>
-            <a href="reset-password.php" class="small text-secondary-custom text-decoration-none">Reset Password</a>
-          </div>
-          <div class="input-group">
-            <span class="input-group-text"><i class="bi bi-key"></i></span>
-            <input type="password" class="form-control" id="loginPassword" name="password" autocomplete="current-password" required>
-            <button class="btn btn-rs-outline toggle-password-btn" type="button" data-target="loginPassword" title="Show or hide password" aria-label="Show password">
-              <i class="bi bi-eye"></i>
-            </button>
+        <!-- Sign In Form Pane -->
+        <div class="col-12 col-md-7 col-lg-7 d-flex flex-column justify-content-center">
+          <div class="rs-login-form-pane">
+            <div class="text-center text-md-start mb-4">
+              <div class="d-inline-flex align-items-center gap-2 mb-2">
+                <div class="rs-brand-icon" style="width: 44px; height: 44px; font-size: 1.35rem;">
+                  <i class="bi bi-house-heart-fill"></i>
+                </div>
+                <span class="fw-bold text-main fs-5">RoomieSync</span>
+              </div>
+              <h1 class="h3 fw-bold mb-1 text-main">Welcome Back</h1>
+              <p class="text-secondary-custom small mb-0">Sign in to manage your household and stay synchronized</p>
+            </div>
+
+            <?php if ($notice): ?>
+              <div class="alert alert-success" role="status"><?= h((string) $notice['message']) ?></div>
+            <?php endif; ?>
+            <?php if ($errorMessage !== ''): ?>
+              <div class="alert alert-danger" role="alert"><?= h($errorMessage) ?></div>
+            <?php endif; ?>
+
+            <form action="login.php" method="POST" id="loginForm">
+              <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+              <div class="mb-3">
+                <label for="loginUsername" class="form-label">Username</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  <input type="text" class="form-control" id="loginUsername" name="username" value="<?= h($username) ?>" autocomplete="username" maxlength="50" required>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label for="loginPassword" class="form-label mb-0">Password</label>
+                  <a href="reset-password.php" class="small text-secondary-custom text-decoration-none">Reset Password</a>
+                </div>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-key"></i></span>
+                  <input type="password" class="form-control" id="loginPassword" name="password" autocomplete="current-password" required>
+                  <button class="btn btn-rs-outline toggle-password-btn" type="button" data-target="loginPassword" title="Show or hide password" aria-label="Show password">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-check mb-4">
+                <input class="form-check-input" type="checkbox" id="rememberMe" name="remember_me" value="1" <?= $rememberMe ? 'checked' : '' ?>>
+                <label class="form-check-label small text-secondary-custom" for="rememberMe">Remember Me for 30 days</label>
+              </div>
+
+              <button type="submit" class="btn btn-rs-primary w-100 py-2 justify-content-center mb-3">
+                <i class="bi bi-box-arrow-in-right"></i> Sign In
+              </button>
+            </form>
+
+            <div class="text-center text-md-start pt-3 border-top">
+              <p class="small text-secondary-custom mb-0">
+                Don't have an account? <a href="register.php" class="fw-bold text-dark-accent text-decoration-none">Create Account</a>
+              </p>
+            </div>
           </div>
         </div>
-
-        <div class="form-check mb-4">
-          <input class="form-check-input" type="checkbox" id="rememberMe" name="remember_me" value="1" <?= $rememberMe ? 'checked' : '' ?>>
-          <label class="form-check-label small text-secondary-custom" for="rememberMe">Remember Me for 30 days</label>
-        </div>
-
-        <button type="submit" class="btn btn-rs-primary w-100 py-2 justify-content-center mb-3">
-          <i class="bi bi-box-arrow-in-right"></i> Sign In
-        </button>
-      </form>
-
-      <div class="text-center pt-3 border-top">
-        <p class="small text-secondary-custom mb-0">
-          Don't have an account? <a href="register.php" class="fw-bold text-dark-accent text-decoration-none">Create Account</a>
-        </p>
       </div>
-    </section>
+    </div>
   </main>
   <script src="assets/js/main.js"></script>
 </body>

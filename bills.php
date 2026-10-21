@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bills.php';
+require_once __DIR__ . '/includes/pagination.php';
 
 if (!restore_remembered_login()) {
     redirect_to('login.php');
@@ -12,6 +13,11 @@ $householdId = selected_household_id();
 if ($householdId === null) {
     redirect_to('households.php');
 }
+
+$billsPagination = null;
+$pagedBills = [];
+$expensePagination = null;
+$pagedExpenses = [];
 
 try {
     $connection = app_pdo();
@@ -73,7 +79,7 @@ if (!in_array($mainView, ['bills', 'expenses'], true)) {
 $filteredBills = [];
 $totalBillsCount = 0;
 $unpaidCount = 0;
-$dueSoonCount = 0;
+$overdueCount = 0;
 $paidCount = 0;
 $myTotalShareBalance = 0.0;
 $tab = 'all';
@@ -93,7 +99,7 @@ if ($mainView === 'bills') {
     $search = mb_substr($search, 0, 100);
 
     $statusFilter = is_string($_GET['status'] ?? null) ? strtolower(trim($_GET['status'])) : 'all';
-    $validStatusFilters = ['all', 'unpaid', 'due soon', 'paid', 'overdue'];
+    $validStatusFilters = ['all', 'unpaid', 'paid', 'overdue'];
     if (!in_array($statusFilter, $validStatusFilters, true)) {
         $statusFilter = 'all';
     }
@@ -172,7 +178,7 @@ if ($mainView === 'bills') {
         $bill['my_share_amount'] = $myShareAmount;
         $bill['my_payment_status'] = $myPaymentStatus;
 
-        // Determine derived display status (Unpaid, Paid, Due Soon, Overdue)
+        // Determine derived display status (Unpaid, Paid, Overdue)
         $statusInfo = bill_display_status((string) $bill['status'], (string) $bill['due_date']);
         $derivedStatus = strtolower($statusInfo['label']);
         $bill['derived_status'] = $derivedStatus;
@@ -194,11 +200,8 @@ if ($mainView === 'bills') {
         $totalBillsCount++;
         if ($isPaidForUser) {
             $paidCount++;
-        } elseif ($derivedStatus === 'due soon') {
-            $dueSoonCount++;
-            $unpaidCount++;
         } elseif ($derivedStatus === 'overdue') {
-            $unpaidCount++;
+            $overdueCount++;
         } else {
             $unpaidCount++;
         }
@@ -209,10 +212,7 @@ if ($mainView === 'bills') {
 
         // Apply status filter if set
         if ($statusFilter !== 'all') {
-            if ($statusFilter === 'unpaid' && $isPaidForUser) {
-                continue;
-            }
-            if ($statusFilter === 'due soon' && ($derivedStatus !== 'due soon' || $isPaidForUser)) {
+            if ($statusFilter === 'unpaid' && ($isPaidForUser || $derivedStatus === 'overdue')) {
                 continue;
             }
             if ($statusFilter === 'paid' && !$isPaidForUser) {
@@ -225,6 +225,9 @@ if ($mainView === 'bills') {
 
         $filteredBills[] = $bill;
     }
+
+    $billsPagination = get_pagination_params(count($filteredBills), 10, [5, 10, 20, 50], 'page', 'per_page');
+    $pagedBills = array_slice($filteredBills, $billsPagination['offset'], $billsPagination['per_page']);
 }
 
 // ==================================================
@@ -385,6 +388,9 @@ if ($mainView === 'expenses') {
 
         $filteredExpenses[] = $exp;
     }
+
+    $expensePagination = get_pagination_params(count($filteredExpenses), 10, [5, 10, 20, 50], 'exp_page', 'exp_per_page');
+    $pagedExpenses = array_slice($filteredExpenses, $expensePagination['offset'], $expensePagination['per_page']);
 }
 
 $notice = consume_flash_message();
@@ -547,10 +553,10 @@ $notice = consume_flash_message();
         </div>
         <div class="col-6 col-lg-3">
           <div class="bill-stat-card card-maintenance">
-            <div class="bill-stat-icon due-soon"><i class="bi bi-alarm"></i></div>
+            <div class="bill-stat-icon overdue"><i class="bi bi-exclamation-circle"></i></div>
             <div>
-              <div class="bill-stat-val"><?= (int) $dueSoonCount ?></div>
-              <div class="bill-stat-lbl">Due Soon</div>
+              <div class="bill-stat-val"><?= (int) $overdueCount ?></div>
+              <div class="bill-stat-lbl">Overdue</div>
             </div>
           </div>
         </div>
@@ -587,7 +593,6 @@ $notice = consume_flash_message();
               <select name="status" class="form-select form-select-sm bill-filter-select" onchange="this.form.submit()">
                 <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>All Statuses</option>
                 <option value="unpaid" <?= $statusFilter === 'unpaid' ? 'selected' : '' ?>>Unpaid</option>
-                <option value="due soon" <?= $statusFilter === 'due soon' ? 'selected' : '' ?>>Due Soon</option>
                 <option value="paid" <?= $statusFilter === 'paid' ? 'selected' : '' ?>>Paid</option>
                 <option value="overdue" <?= $statusFilter === 'overdue' ? 'selected' : '' ?>>Overdue</option>
               </select>
@@ -653,7 +658,7 @@ $notice = consume_flash_message();
                 </tr>
 
               <?php else: ?>
-                <?php foreach ($filteredBills as $bill): ?>
+                <?php foreach ($pagedBills as $bill): ?>
                   <?php
                     $jsonPayload = json_encode([
                         'bill_id' => (int) $bill['bill_id'],
@@ -772,6 +777,7 @@ $notice = consume_flash_message();
             </tbody>
           </table>
         </div>
+        <?= $billsPagination ? render_pagination($billsPagination, ['view' => 'bills', 'tab' => $tab, 'search' => $search, 'status' => $statusFilter, 'category' => $categoryFilter > 0 ? $categoryFilter : null]) : '' ?>
       </section>
 
     <?php else: ?>
@@ -940,7 +946,7 @@ $notice = consume_flash_message();
                   </td>
                 </tr>
               <?php else: ?>
-                <?php foreach ($filteredExpenses as $exp): ?>
+                <?php foreach ($pagedExpenses as $exp): ?>
                   <?php
                     $jsonExpPayload = json_encode([
                         'expense_id' => (int) $exp['expense_id'],
@@ -1075,6 +1081,7 @@ $notice = consume_flash_message();
             </tbody>
           </table>
         </div>
+        <?= $expensePagination ? render_pagination($expensePagination, ['view' => 'expenses', 'expense_search' => $expenseSearch, 'expense_category' => $expenseCategoryFilter > 0 ? $expenseCategoryFilter : null, 'expense_date_filter' => $expenseDateFilter, 'expense_sort' => $expenseSort]) : '' ?>
       </section>
 
     <?php endif; ?>
@@ -1219,7 +1226,6 @@ $notice = consume_flash_message();
                     <select class="form-select" id="addStatus" name="status">
                       <option value="Unpaid" selected>Unpaid</option>
                       <option value="Paid">Paid</option>
-                      <option value="Due Soon">Due Soon</option>
                       <option value="Overdue">Overdue</option>
                     </select>
                   </div>
@@ -1329,7 +1335,6 @@ $notice = consume_flash_message();
                     <select class="form-select" id="editStatus" name="status">
                       <option value="Unpaid">Unpaid</option>
                       <option value="Paid">Paid</option>
-                      <option value="Due Soon">Due Soon</option>
                       <option value="Overdue">Overdue</option>
                     </select>
                   </div>

@@ -1,9 +1,134 @@
 /**
  * RoomieSync - Manage Module Scripts
+ * Handles expandable accordion cards, sub-tabs, modals, and dynamic controls.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Category tabs switching (Chores / Expenses / Bills)
+  // ==================================================
+  // 1. EXPANDABLE ACCORDION CARDS LOGIC
+  // ==================================================
+  const accordionCards = document.querySelectorAll('.manage-accordion-card');
+  const accordionHeaders = document.querySelectorAll('.manage-accordion-header');
+
+  function openCard(card, smoothScroll = false) {
+    if (!card) return;
+    
+    // Close other accordion cards to keep view clean and prevent excessive page length
+    accordionCards.forEach(c => {
+      if (c !== card) {
+        c.classList.remove('is-expanded');
+        const h = c.querySelector('.manage-accordion-header');
+        if (h) h.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    card.classList.add('is-expanded');
+    const header = card.querySelector('.manage-accordion-header');
+    if (header) header.setAttribute('aria-expanded', 'true');
+
+    if (smoothScroll) {
+      setTimeout(() => {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }
+
+  function toggleCard(card) {
+    if (!card) return;
+    if (card.classList.contains('is-expanded')) {
+      card.classList.remove('is-expanded');
+      const header = card.querySelector('.manage-accordion-header');
+      if (header) header.setAttribute('aria-expanded', 'false');
+    } else {
+      openCard(card);
+    }
+  }
+
+  accordionHeaders.forEach(header => {
+    header.addEventListener('click', (e) => {
+      // Don't toggle if clicking an interactive control inside header (if any)
+      if (e.target.closest('button, a, input, select')) return;
+      const card = header.closest('.manage-accordion-card');
+      toggleCard(card);
+    });
+
+    // Keyboard accessibility: Enter or Space
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const card = header.closest('.manage-accordion-card');
+        toggleCard(card);
+      }
+    });
+  });
+
+  // Auto-expand card based on URL hash or action
+  function handleUrlHash() {
+    const hash = window.location.hash.toLowerCase();
+    if (!hash) return;
+
+    if (hash === '#manageusers' || hash === '#cardmanageusers') {
+      const card = document.getElementById('cardManageUsers');
+      if (card) openCard(card, true);
+    } else if (hash === '#categoriessection' || hash === '#cardcategories') {
+      const card = document.getElementById('cardCategories');
+      if (card) openCard(card, true);
+    } else if (hash === '#announcementssection' || hash === '#cardannouncements') {
+      const card = document.getElementById('cardAnnouncements');
+      if (card) {
+        openCard(card, true);
+        switchManageSubtab('announcements');
+      }
+    } else if (hash === '#activitylogssection' || hash === '#activity') {
+      const card = document.getElementById('cardAnnouncements');
+      if (card) {
+        openCard(card, true);
+        switchManageSubtab('activity');
+      }
+    } else if (hash === '#householdsettingssection' || hash === '#cardhouseholdsettings') {
+      const card = document.getElementById('cardHouseholdSettings');
+      if (card) openCard(card, true);
+    }
+  }
+
+  handleUrlHash();
+  window.addEventListener('hashchange', handleUrlHash);
+
+  // ==================================================
+  // 2. SUB-TABS (Announcements vs Activity Logs)
+  // ==================================================
+  function switchManageSubtab(targetTab) {
+    const subtabBtns = document.querySelectorAll('.manage-subtab-btn');
+    const subtabPanels = document.querySelectorAll('.manage-subtab-panel');
+
+    subtabBtns.forEach(btn => {
+      if (btn.getAttribute('data-subtab') === targetTab) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    subtabPanels.forEach(panel => {
+      if (panel.getAttribute('data-subtab') === targetTab) {
+        panel.classList.remove('d-none');
+      } else {
+        panel.classList.add('d-none');
+      }
+    });
+  }
+
+  const subtabBtns = document.querySelectorAll('.manage-subtab-btn');
+  subtabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-subtab');
+      if (target) switchManageSubtab(target);
+    });
+  });
+
+  // ==================================================
+  // 3. CATEGORY TABS (Chores / Expenses / Bills)
+  // ==================================================
   const categoryTabBtns = document.querySelectorAll('.category-tab-btn');
   const categoryPanels = document.querySelectorAll('.category-panel');
 
@@ -25,6 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ==================================================
+  // 4. MODALS PREFILL HANDLERS
+  // ==================================================
   // Edit Announcement Modal prefill
   const editAnnBtns = document.querySelectorAll('.btn-edit-announcement');
   const editAnnId = document.getElementById('editAnnouncementId');
@@ -114,6 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ==================================================
+  // 5. LIVE SEARCH & BANNER PREVIEW & COPY CODE
+  // ==================================================
   // Live Member Filter Search
   const memberSearchInput = document.getElementById('memberSearchInput');
   const memberTable = document.getElementById('manageMembersTable');
@@ -146,4 +277,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Copy Join Code Button
+  const copyCodeBtns = document.querySelectorAll('.btn-copy-code');
+  copyCodeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.getAttribute('data-code') || '';
+      if (code && navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(() => {
+          const origHtml = btn.innerHTML;
+          btn.innerHTML = '<i class="bi bi-check2 me-1"></i> Copied!';
+          btn.classList.add('btn-success');
+          btn.classList.remove('btn-rs-outline');
+          if (typeof showToast === 'function') {
+            showToast('Join code copied to clipboard!', 'success');
+          }
+          setTimeout(() => {
+            btn.innerHTML = origHtml;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-rs-outline');
+          }, 2000);
+        });
+      }
+    });
+  });
 });

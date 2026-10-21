@@ -80,10 +80,10 @@
   border: 1px solid var(--rs-status-amber-border);
 }
 
-.bill-stat-icon.due-soon {
-  background: #FEF3C7;
-  color: #B45309;
-  border: 1px solid #FCD34D;
+.bill-stat-icon.overdue {
+  background: var(--rs-status-red-bg);
+  color: var(--rs-status-red-text);
+  border: 1px solid var(--rs-status-red-border);
 }
 
 .bill-stat-icon.paid {

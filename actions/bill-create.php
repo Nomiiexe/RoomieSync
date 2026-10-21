@@ -12,7 +12,7 @@ $dueDate = bill_valid_date($_POST['due_date'] ?? null);
 $rawCategoryId = $_POST['category_id'] ?? null;
 $categoryId = is_string($rawCategoryId) && ctype_digit($rawCategoryId) ? (int) $rawCategoryId : 0;
 $status = trim(is_string($_POST['status'] ?? null) ? $_POST['status'] : 'Unpaid');
-$validStatuses = ['Unpaid', 'Paid', 'Due Soon', 'Overdue'];
+$validStatuses = ['Unpaid', 'Paid', 'Overdue'];
 if (!in_array($status, $validStatuses, true)) {
     $status = 'Unpaid';
 }

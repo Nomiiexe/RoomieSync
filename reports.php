@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/pagination.php';
 
 // Ensure user is signed in
 if (!restore_remembered_login()) {
@@ -100,6 +101,11 @@ if ($fromDate > $toDate) {
 }
 
 $hasCustomFilter = ($rawFrom !== null || $rawTo !== null);
+
+// View Selection for Reports (squared cards overview vs openable report pages)
+$rawView = isset($_GET['view']) && is_string($_GET['view']) ? strtolower(trim($_GET['view'])) : 'overview';
+$validViews = ['overview', 'expenses', 'bills', 'chores', 'maintenance', 'members', 'activity'];
+$view = in_array($rawView, $validViews, true) ? $rawView : 'overview';
 
 // ==================================================
 // DATABASE QUERIES (Prepared statements, filtered by current household & date range)
@@ -975,13 +981,40 @@ if ($exportFormat === 'csv') {
     }
     exit;
 }
+
+// Calculate Pagination for Report Tables
+$expReportPagination = get_pagination_params(count($expenseRecords), 10, [5, 10, 20, 50], 'exp_page', 'exp_per_page');
+$pagedExpenseRecords = array_slice($expenseRecords, $expReportPagination['offset'], $expReportPagination['per_page']);
+
+$billReportPagination = get_pagination_params(count($billRecords), 10, [5, 10, 20, 50], 'bill_page', 'bill_per_page');
+$pagedBillRecords = array_slice($billRecords, $billReportPagination['offset'], $billReportPagination['per_page']);
+
+$choreReportPagination = get_pagination_params(count($choreRecords), 10, [5, 10, 20, 50], 'chore_page', 'chore_per_page');
+$pagedChoreRecords = array_slice($choreRecords, $choreReportPagination['offset'], $choreReportPagination['per_page']);
+
+$maintReportPagination = get_pagination_params(count($maintenanceRecords), 10, [5, 10, 20, 50], 'maint_page', 'maint_per_page');
+$pagedMaintenanceRecords = array_slice($maintenanceRecords, $maintReportPagination['offset'], $maintReportPagination['per_page']);
+
+$memReportPagination = get_pagination_params(count($memberSummaryList), 10, [5, 10, 20, 50], 'mem_page', 'mem_per_page');
+$pagedMemberSummaryList = array_slice($memberSummaryList, $memReportPagination['offset'], $memReportPagination['per_page']);
+
+$viewTitles = [
+    'overview' => 'Reports',
+    'expenses' => 'Expenses Report',
+    'bills' => 'Bills & Utilities Report',
+    'chores' => 'Chores & Tasks Report',
+    'maintenance' => 'Maintenance & Repairs Report',
+    'members' => 'Member Participation Matrix',
+    'activity' => 'Household Activity Summary',
+];
+$currentReportTitle = $viewTitles[$view] ?? 'Reports';
 ?>
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reports | RoomieSync</title>
+  <title><?= h($currentReportTitle) ?> | RoomieSync</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -996,10 +1029,11 @@ if ($exportFormat === 'csv') {
   <div class="report-print-header">
     <div class="d-flex justify-content-between align-items-center">
       <div>
-        <h1 class="h3 fw-bold mb-1">RoomieSync &ndash; Household Report</h1>
+        <h1 class="h3 fw-bold mb-1">RoomieSync &ndash; <?= h($currentReportTitle) ?></h1>
         <p class="print-meta mb-0">
           <strong>Household:</strong> <?= h($householdName) ?> &bull; 
           <strong>Date Range:</strong> <?= h($formattedFromDate) ?> &ndash; <?= h($formattedToDate) ?>
+          <?php if ($view !== 'overview'): ?> &bull; <strong>Scope:</strong> <?= h(ucfirst($view)) ?><?php endif; ?>
         </p>
       </div>
       <div class="text-end print-meta">
@@ -1068,14 +1102,40 @@ if ($exportFormat === 'csv') {
     <!-- Report Header -->
     <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
       <div>
-        <span class="rs-eyebrow d-block mb-1">Household Overview &amp; Records</span>
-        <h1 class="h2 fw-bold text-main mb-1">Reports</h1>
-        <p class="text-secondary-custom mb-0">View summaries of your household expenses, bills, chores, and activities.</p>
+        <span class="rs-eyebrow d-block mb-1">
+          <?php if ($view === 'overview'): ?>
+            Household Overview &amp; Records
+          <?php else: ?>
+            Household Report &bull; <?= h(ucfirst($view)) ?>
+          <?php endif; ?>
+        </span>
+        <h1 class="h2 fw-bold text-main mb-1"><?= h($currentReportTitle) ?></h1>
+        <p class="text-secondary-custom mb-0">
+          <?php if ($view === 'overview'): ?>
+            Select any squared report card below to view detailed records, breakdown summaries, and export data.
+          <?php elseif ($view === 'expenses'): ?>
+            Individual household expenses, category breakdowns, and payer contribution totals.
+          <?php elseif ($view === 'bills'): ?>
+            Household recurring utilities, due dates, paid vs unpaid amounts, and settlement status.
+          <?php elseif ($view === 'chores'): ?>
+            Roommate assignment schedule, completion history, and task accountability.
+          <?php elseif ($view === 'maintenance'): ?>
+            Household maintenance tickets, repair requests, and current resolution statuses.
+          <?php elseif ($view === 'members'): ?>
+            Matrix of member contributions across expenses, chores completed, bill shares, and tickets.
+          <?php elseif ($view === 'activity'): ?>
+            Aggregate operational event totals across all household modules.
+          <?php endif; ?>
+        </p>
       </div>
       <div class="d-flex align-items-center gap-2">
         <div class="btn-group">
-          <a href="reports.php?export=excel&scope=all&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-primary" id="btnExportExcel" title="Export complete report to MS Excel (.xls)">
-            <i class="bi bi-file-earmark-excel me-1"></i> Export to Excel
+          <?php
+            $exportScope = ($view !== 'overview') ? $view : 'all';
+            $exportBtnLabel = ($view !== 'overview') ? 'Export ' . ucfirst($view) . ' (.xls)' : 'Export to Excel';
+          ?>
+          <a href="reports.php?export=excel&scope=<?= urlencode($exportScope) ?>&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-primary" id="btnExportExcel" title="Export to MS Excel (.xls)">
+            <i class="bi bi-file-earmark-excel me-1"></i> <?= h($exportBtnLabel) ?>
           </a>
           <button type="button" class="btn btn-rs-primary dropdown-toggle dropdown-toggle-split px-2" data-bs-toggle="dropdown" aria-expanded="false" title="Export options">
             <span class="visually-hidden">Toggle Dropdown</span>
@@ -1089,29 +1149,29 @@ if ($exportFormat === 'csv') {
             </li>
             <li><hr class="dropdown-divider rs-dropdown-divider"></li>
             <li>
-              <a class="dropdown-item rs-dropdown-item" href="reports.php?export=excel&scope=expenses&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
+              <a class="dropdown-item rs-dropdown-item <?= $view === 'expenses' ? 'active' : '' ?>" href="reports.php?export=excel&scope=expenses&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
                 <i class="bi bi-wallet2 me-2" style="color: #10B981;"></i> Expenses Sheet (.xls)
               </a>
             </li>
             <li>
-              <a class="dropdown-item rs-dropdown-item" href="reports.php?export=excel&scope=bills&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
+              <a class="dropdown-item rs-dropdown-item <?= $view === 'bills' ? 'active' : '' ?>" href="reports.php?export=excel&scope=bills&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
                 <i class="bi bi-receipt me-2" style="color: #10B981;"></i> Bills Sheet (.xls)
               </a>
             </li>
             <li>
-              <a class="dropdown-item rs-dropdown-item" href="reports.php?export=excel&scope=chores&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
+              <a class="dropdown-item rs-dropdown-item <?= $view === 'chores' ? 'active' : '' ?>" href="reports.php?export=excel&scope=chores&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
                 <i class="bi bi-check2-square me-2" style="color: #3B82F6;"></i> Chores Sheet (.xls)
               </a>
             </li>
             <li>
-              <a class="dropdown-item rs-dropdown-item" href="reports.php?export=excel&scope=maintenance&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
+              <a class="dropdown-item rs-dropdown-item <?= $view === 'maintenance' ? 'active' : '' ?>" href="reports.php?export=excel&scope=maintenance&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
                 <i class="bi bi-tools me-2" style="color: #EF4444;"></i> Maintenance Sheet (.xls)
               </a>
             </li>
             <li><hr class="dropdown-divider rs-dropdown-divider"></li>
             <li><h6 class="dropdown-header">Other Formats</h6></li>
             <li>
-              <a class="dropdown-item rs-dropdown-item text-secondary-custom" href="reports.php?export=csv&scope=all&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
+              <a class="dropdown-item rs-dropdown-item text-secondary-custom" href="reports.php?export=csv&scope=<?= urlencode($exportScope) ?>&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>">
                 <i class="bi bi-filetype-csv me-2"></i> Export as Plain CSV (.csv)
               </a>
             </li>
@@ -1119,6 +1179,35 @@ if ($exportFormat === 'csv') {
         </div>
       </div>
     </header>
+
+    <?php if ($view !== 'overview'): ?>
+      <!-- Section Back Navigation & Quick Switcher -->
+      <div class="rs-view-toolbar">
+        <a href="reports.php?from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-btn-back">
+          <i class="bi bi-arrow-left"></i> Back to Reports Hub
+        </a>
+        <div class="rs-view-pills">
+          <a href="reports.php?view=expenses&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-view-pill-btn <?= $view === 'expenses' ? 'active' : '' ?>">
+            <i class="bi bi-wallet2"></i> Expenses
+          </a>
+          <a href="reports.php?view=bills&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-view-pill-btn <?= $view === 'bills' ? 'active' : '' ?>">
+            <i class="bi bi-receipt"></i> Bills
+          </a>
+          <a href="reports.php?view=chores&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-view-pill-btn <?= $view === 'chores' ? 'active' : '' ?>">
+            <i class="bi bi-check2-square"></i> Chores
+          </a>
+          <a href="reports.php?view=maintenance&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-view-pill-btn <?= $view === 'maintenance' ? 'active' : '' ?>">
+            <i class="bi bi-tools"></i> Maintenance
+          </a>
+          <a href="reports.php?view=members&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-view-pill-btn <?= $view === 'members' ? 'active' : '' ?>">
+            <i class="bi bi-people-fill"></i> Members
+          </a>
+          <a href="reports.php?view=activity&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-view-pill-btn <?= $view === 'activity' ? 'active' : '' ?>">
+            <i class="bi bi-activity"></i> Activity
+          </a>
+        </div>
+      </div>
+    <?php endif; ?>
 
     <!-- Date Filter Card -->
     <section class="report-filter-card">
@@ -1141,6 +1230,9 @@ if ($exportFormat === 'csv') {
       </div>
 
       <form method="GET" action="reports.php" id="reportFilterForm" class="row g-3 align-items-end">
+        <?php if ($view !== 'overview'): ?>
+          <input type="hidden" name="view" value="<?= h($view) ?>">
+        <?php endif; ?>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <label for="from_date" class="report-filter-label">From Date</label>
           <input type="date" name="from_date" id="from_date" class="form-control report-date-input" value="<?= h($fromDate) ?>" required>
@@ -1153,577 +1245,758 @@ if ($exportFormat === 'csv') {
           <button type="submit" class="btn btn-rs-primary px-3">
             <i class="bi bi-filter me-1"></i> Apply Filter
           </button>
-          <a href="reports.php" class="btn btn-rs-outline px-3" title="Reset date filter to current month">
+          <a href="reports.php<?= $view !== 'overview' ? '?view=' . urlencode($view) : '' ?>" class="btn btn-rs-outline px-3" title="Reset date filter to current month">
             <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
           </a>
         </div>
       </form>
     </section>
 
-    <!-- Top Summary Cards (4 Cards: Expenses, Bills, Chores, Maintenance) -->
-    <section class="row g-3 mb-4">
-      <div class="col-6 col-lg-3">
-        <div class="report-stat-card card-money">
-          <div class="report-stat-icon expenses">
-            <i class="bi bi-wallet2"></i>
-          </div>
-          <div class="overflow-hidden">
-            <div class="report-stat-val text-truncate">₱<?= number_format($totalExpensesAmount, 2) ?></div>
-            <div class="report-stat-lbl">Total Expenses</div>
-            <div class="report-stat-sub text-truncate"><?= $totalExpensesCount ?> expense<?= $totalExpensesCount === 1 ? '' : 's' ?> recorded</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-lg-3">
-        <div class="report-stat-card card-money">
-          <div class="report-stat-icon bills">
-            <i class="bi bi-receipt"></i>
-          </div>
-          <div class="overflow-hidden">
-            <div class="report-stat-val text-truncate">₱<?= number_format($totalBillsAmount, 2) ?></div>
-            <div class="report-stat-lbl">Total Bills</div>
-            <div class="report-stat-sub text-truncate"><?= $totalBillsCount ?> bill<?= $totalBillsCount === 1 ? '' : 's' ?> due in period</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-lg-3">
-        <div class="report-stat-card card-chores">
-          <div class="report-stat-icon chores">
-            <i class="bi bi-check2-square"></i>
-          </div>
-          <div class="overflow-hidden">
-            <div class="report-stat-val text-truncate"><?= $pendingSummaryCardCount ?></div>
-            <div class="report-stat-lbl">Pending Chores</div>
-            <div class="report-stat-sub text-truncate"><?= $completedChoresCount ?> completed in period</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-lg-3">
-        <div class="report-stat-card card-maintenance">
-          <div class="report-stat-icon maintenance">
-            <i class="bi bi-tools"></i>
-          </div>
-          <div class="overflow-hidden">
-            <div class="report-stat-val text-truncate"><?= $openMaintenanceCount ?></div>
-            <div class="report-stat-lbl">Open Maintenance</div>
-            <div class="report-stat-sub text-truncate"><?= $resolvedMaintenanceCount ?> resolved in period</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 1. Expense Summary Section -->
-    <section class="report-section-card card-money">
-      <div class="report-section-header">
-        <div class="report-section-title-wrap">
-          <div class="report-section-icon expenses"><i class="bi bi-wallet2"></i></div>
+    <!-- ==================================================
+         VIEW 1: OVERVIEW HUB (SQUARED OPENABLE REPORT CARDS)
+         ================================================== -->
+    <?php if ($view === 'overview'): ?>
+      <div class="rs-hub-grid">
+        <!-- 1. Expenses Report Card -->
+        <a href="reports.php?view=expenses&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-hub-card card-green">
           <div>
-            <h2 class="h5 fw-bold text-main mb-0">Expense Summary</h2>
-            <small class="text-secondary-custom">Individual household expenses and member contributions</small>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon green">
+                <i class="bi bi-wallet2"></i>
+              </div>
+              <span class="rs-hub-pill"><?= $totalExpensesCount ?> Expense<?= $totalExpensesCount === 1 ? '' : 's' ?></span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Expenses Report</h2>
+              <div class="rs-hub-metric" style="color: #047857 !important;">₱<?= number_format($totalExpensesAmount, 2) ?></div>
+              <p class="rs-hub-desc">Track household purchases, spending breakdown by category, and individual member contribution logs.</p>
+            </div>
           </div>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="report-tag">
-            <i class="bi bi-hash"></i> Total: <strong><?= $totalExpensesCount ?></strong>
-          </span>
-          <span class="report-tag">
-            <i class="bi bi-cash-stack"></i> Amount: <strong>₱<?= number_format($totalExpensesAmount, 2) ?></strong>
-          </span>
-        </div>
+          <div class="rs-hub-footer">
+            <span>Open Expenses Report</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- 2. Bills & Utilities Card -->
+        <a href="reports.php?view=bills&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-hub-card card-amber">
+          <div>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon amber">
+                <i class="bi bi-receipt"></i>
+              </div>
+              <span class="rs-hub-pill"><?= $totalBillsCount ?> Bill<?= $totalBillsCount === 1 ? '' : 's' ?> Due</span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Bills &amp; Utilities</h2>
+              <div class="rs-hub-metric" style="color: #B45309 !important;">₱<?= number_format($totalBillsAmount, 2) ?></div>
+              <p class="rs-hub-desc">Review recurring household utility charges, payment deadlines, settlement statuses, and overdue accounts.</p>
+            </div>
+          </div>
+          <div class="rs-hub-footer">
+            <span>Open Bills Report</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- 3. Chores & Tasks Card -->
+        <a href="reports.php?view=chores&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-hub-card card-blue">
+          <div>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon blue">
+                <i class="bi bi-check2-square"></i>
+              </div>
+              <span class="rs-hub-pill"><?= $totalChoreAssignments ?> Scheduled</span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Chores &amp; Tasks</h2>
+              <div class="rs-hub-metric text-primary"><?= $completedChoresCount ?> Done &bull; <?= $pendingSummaryCardCount ?> Pending</div>
+              <p class="rs-hub-desc">Monitor roommate task assignments, on-time completion rates, pending duties, and overdue chores.</p>
+            </div>
+          </div>
+          <div class="rs-hub-footer">
+            <span>Open Chores Report</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- 4. Maintenance & Repairs Card -->
+        <a href="reports.php?view=maintenance&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-hub-card card-rose">
+          <div>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon rose">
+                <i class="bi bi-tools"></i>
+              </div>
+              <span class="rs-hub-pill"><?= $totalMaintenanceCount ?> Total Ticket<?= $totalMaintenanceCount === 1 ? '' : 's' ?></span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Maintenance &amp; Repairs</h2>
+              <div class="rs-hub-metric" style="color: #BE123C !important;"><?= $openMaintenanceCount ?> Open &bull; <?= $resolvedMaintenanceCount ?> Resolved</div>
+              <p class="rs-hub-desc">Inspect reported damages, repairs, plumber/electrician requests, and live resolution progress.</p>
+            </div>
+          </div>
+          <div class="rs-hub-footer">
+            <span>Open Maintenance Report</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- 5. Member Participation Matrix Card -->
+        <a href="reports.php?view=members&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-hub-card card-purple">
+          <div>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon purple">
+                <i class="bi bi-person-badge"></i>
+              </div>
+              <span class="rs-hub-pill"><?= count($memberSummaryList) ?> Members</span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Member Participation</h2>
+              <div class="rs-hub-metric" style="color: #6D28D9 !important;"><?= count($memberSummaryList) ?> Active Roommates</div>
+              <p class="rs-hub-desc">Comprehensive matrix showing each member's paid expenses, completed chores, bill shares, and tickets.</p>
+            </div>
+          </div>
+          <div class="rs-hub-footer">
+            <span>Open Member Matrix</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- 6. Household Activity Summary Card -->
+        <a href="reports.php?view=activity&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="rs-hub-card card-green">
+          <div>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon green">
+                <i class="bi bi-activity"></i>
+              </div>
+              <span class="rs-hub-pill"><?= $activityMembersCount ?> In Household</span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Household Activity</h2>
+              <div class="rs-hub-metric" style="color: #047857 !important;"><?= $activityAnnounceCount + $actExpensesCount + $actBillsCount + $actChoresCreatedCount + $actMaintenanceCount ?> Total Events</div>
+              <p class="rs-hub-desc">Overall operational activity metrics across announcements, chore definitions, bills, and tickets.</p>
+            </div>
+          </div>
+          <div class="rs-hub-footer">
+            <span>Open Activity Summary</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
       </div>
 
-      <!-- Expense Categories & Payers Breakdown -->
-      <?php if (!empty($expenseCategories) || !empty($expensePayers)): ?>
-        <div class="row g-3 mb-4">
-          <?php if (!empty($expenseCategories)): ?>
-            <div class="col-12 col-md-6">
-              <div class="p-3 rounded bg-warm-secondary border">
-                <span class="report-filter-label mb-2"><i class="bi bi-tag me-1"></i> Expense Categories</span>
-                <div class="d-flex flex-wrap gap-2">
-                  <?php foreach ($expenseCategories as $cat): ?>
-                    <span class="report-tag bg-white">
-                      <span><?= h((string) $cat['category_name']) ?>:</span>
-                      <strong>₱<?= number_format((float) $cat['cat_total'], 2) ?></strong>
-                      <small class="text-secondary-custom">(<?= (int) $cat['cat_count'] ?>)</small>
-                    </span>
-                  <?php endforeach; ?>
-                </div>
+      <!-- Quick Executive Summary Banner (clean, uncluttered high-level snapshot) -->
+      <section class="p-4 rounded-4 bg-white border shadow-sm">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3 pb-3 border-bottom">
+          <div>
+            <h3 class="h6 fw-bold text-main mb-1"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>Household Health at a Glance</h3>
+            <p class="small text-secondary-custom mb-0">Summary performance for <?= h($householdName) ?> from <?= h($formattedFromDate) ?> to <?= h($formattedToDate) ?>.</p>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="reports.php?export=excel&scope=all&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-outline btn-sm">
+              <i class="bi bi-download me-1"></i> Full Workbook (.xls)
+            </a>
+          </div>
+        </div>
+        <div class="row g-3 text-center">
+          <div class="col-6 col-md-3">
+            <div class="p-2 rounded bg-warm-secondary">
+              <small class="text-secondary-custom text-uppercase fw-bold" style="font-size: 0.7rem;">Settled Expenses</small>
+              <div class="fw-bold text-main fs-6 mt-1">₱<?= number_format($totalExpensesAmount, 2) ?></div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="p-2 rounded bg-warm-secondary">
+              <small class="text-secondary-custom text-uppercase fw-bold" style="font-size: 0.7rem;">Paid Bills</small>
+              <div class="fw-bold text-main fs-6 mt-1"><?= $paidBillsCount ?> / <?= $totalBillsCount ?> Paid</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="p-2 rounded bg-warm-secondary">
+              <small class="text-secondary-custom text-uppercase fw-bold" style="font-size: 0.7rem;">Chore Completion</small>
+              <div class="fw-bold text-main fs-6 mt-1">
+                <?= $totalChoreAssignments > 0 ? round(($completedChoresCount / $totalChoreAssignments) * 100) : 100 ?>%
               </div>
             </div>
-          <?php endif; ?>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="p-2 rounded bg-warm-secondary">
+              <small class="text-secondary-custom text-uppercase fw-bold" style="font-size: 0.7rem;">Open Tickets</small>
+              <div class="fw-bold text-main fs-6 mt-1"><?= $openMaintenanceCount ?> Open</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    <?php endif; ?>
 
-          <?php if (!empty($expensePayers)): ?>
-            <div class="col-12 col-md-6">
-              <div class="p-3 rounded bg-warm-secondary border">
-                <span class="report-filter-label mb-2"><i class="bi bi-people me-1"></i> Paid by Members</span>
-                <div class="d-flex flex-wrap gap-2">
-                  <?php foreach ($expensePayers as $payer): ?>
-                    <span class="report-tag bg-white">
-                      <span><?= h((string) $payer['payer_name']) ?>:</span>
-                      <strong>₱<?= number_format((float) $payer['total_paid'], 2) ?></strong>
-                    </span>
-                  <?php endforeach; ?>
+    <!-- ==================================================
+         VIEW 2: EXPENSES REPORT
+         ================================================== -->
+    <?php if ($view === 'expenses'): ?>
+      <section class="report-section-card card-money">
+        <div class="report-section-header">
+          <div class="report-section-title-wrap">
+            <div class="report-section-icon expenses"><i class="bi bi-wallet2"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Expense Summary</h2>
+              <small class="text-secondary-custom">Individual household expenses and member contributions</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="report-tag">
+              <i class="bi bi-hash"></i> Total: <strong><?= $totalExpensesCount ?></strong>
+            </span>
+            <span class="report-tag">
+              <i class="bi bi-cash-stack"></i> Amount: <strong>₱<?= number_format($totalExpensesAmount, 2) ?></strong>
+            </span>
+          </div>
+        </div>
+
+        <!-- Expense Categories & Payers Breakdown -->
+        <?php if (!empty($expenseCategories) || !empty($expensePayers)): ?>
+          <div class="row g-3 mb-4">
+            <?php if (!empty($expenseCategories)): ?>
+              <div class="col-12 col-md-6">
+                <div class="p-3 rounded bg-warm-secondary border">
+                  <span class="report-filter-label mb-2"><i class="bi bi-tag me-1"></i> Expense Categories</span>
+                  <div class="d-flex flex-wrap gap-2">
+                    <?php foreach ($expenseCategories as $cat): ?>
+                      <span class="report-tag bg-white">
+                        <span><?= h((string) $cat['category_name']) ?>:</span>
+                        <strong>₱<?= number_format((float) $cat['cat_total'], 2) ?></strong>
+                        <small class="text-secondary-custom">(<?= (int) $cat['cat_count'] ?>)</small>
+                      </span>
+                    <?php endforeach; ?>
+                  </div>
                 </div>
               </div>
-            </div>
-          <?php endif; ?>
-        </div>
-      <?php endif; ?>
+            <?php endif; ?>
 
-      <!-- Individual Expense Records Table: Date | Expense | Category | Amount | Paid By -->
-      <div class="report-table-wrapper">
-        <table class="table report-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Expense</th>
-              <th>Category</th>
-              <th class="text-end">Amount</th>
-              <th>Paid By</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (empty($expenseRecords)): ?>
+            <?php if (!empty($expensePayers)): ?>
+              <div class="col-12 col-md-6">
+                <div class="p-3 rounded bg-warm-secondary border">
+                  <span class="report-filter-label mb-2"><i class="bi bi-people me-1"></i> Paid by Members</span>
+                  <div class="d-flex flex-wrap gap-2">
+                    <?php foreach ($expensePayers as $payer): ?>
+                      <span class="report-tag bg-white">
+                        <span><?= h((string) $payer['payer_name']) ?>:</span>
+                        <strong>₱<?= number_format((float) $payer['total_paid'], 2) ?></strong>
+                      </span>
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+              </div>
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
+
+        <!-- Individual Expense Records Table: Date | Expense | Category | Amount | Paid By -->
+        <div class="report-table-wrapper">
+          <table class="table report-table">
+            <thead>
               <tr>
-                <td colspan="5" class="report-empty-state">
-                  <i class="bi bi-inbox"></i>
-                  <p class="mb-0">No expense records found for this date range.</p>
-                </td>
+                <th>Date</th>
+                <th>Expense</th>
+                <th>Category</th>
+                <th class="text-end">Amount</th>
+                <th>Paid By</th>
               </tr>
-            <?php else: ?>
-              <?php foreach ($expenseRecords as $exp): ?>
+            </thead>
+            <tbody>
+              <?php if (empty($expenseRecords)): ?>
                 <tr>
-                  <td class="text-nowrap"><?= h(date('M j, Y', strtotime((string) $exp['expense_date']))) ?></td>
-                  <td>
-                    <div class="fw-bold text-main"><?= h((string) $exp['title']) ?></div>
-                    <?php if (!empty($exp['description'])): ?>
-                      <small class="text-secondary-custom"><?= h((string) $exp['description']) ?></small>
-                    <?php endif; ?>
-                  </td>
-                  <td>
-                    <span class="report-tag"><?= h((string) $exp['category_name']) ?></span>
-                  </td>
-                  <td class="text-end fw-bold text-main">
-                    ₱<?= number_format((float) $exp['amount'], 2) ?>
-                  </td>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="member-avatar-pill"><?= h(reports_initials((string) $exp['paid_by_name'])) ?></div>
-                      <span class="fw-semibold"><?= h((string) $exp['paid_by_name']) ?></span>
-                    </div>
+                  <td colspan="5" class="report-empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <p class="mb-0">No expense records found for this date range.</p>
                   </td>
                 </tr>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 2. Bill Summary Section -->
-    <section class="report-section-card card-money">
-      <div class="report-section-header">
-        <div class="report-section-title-wrap">
-          <div class="report-section-icon bills"><i class="bi bi-receipt"></i></div>
-          <div>
-            <h2 class="h5 fw-bold text-main mb-0">Bill Summary</h2>
-            <small class="text-secondary-custom">Household recurring utilities, due dates, and settlement status</small>
-          </div>
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <span class="report-tag"><i class="bi bi-collection"></i> Total Bills: <strong><?= $totalBillsCount ?></strong></span>
-          <span class="report-tag"><i class="bi bi-cash"></i> Amount: <strong>₱<?= number_format($totalBillsAmount, 2) ?></strong></span>
-          <span class="rs-badge rs-badge-paid"><span class="badge-dot"></span> Paid: <?= $paidBillsCount ?></span>
-          <span class="rs-badge rs-badge-unpaid"><span class="badge-dot"></span> Unpaid: <?= $unpaidBillsCount ?></span>
-          <?php if ($overdueBillsCount > 0): ?>
-            <span class="rs-badge rs-badge-overdue"><span class="badge-dot"></span> Overdue: <?= $overdueBillsCount ?></span>
-          <?php endif; ?>
-        </div>
-      </div>
-
-      <!-- Bill Records Table: Bill | Category | Amount | Due Date | Status -->
-      <div class="report-table-wrapper">
-        <table class="table report-table">
-          <thead>
-            <tr>
-              <th>Bill</th>
-              <th>Category</th>
-              <th class="text-end">Amount</th>
-              <th>Due Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (empty($billRecords)): ?>
-              <tr>
-                <td colspan="5" class="report-empty-state">
-                  <i class="bi bi-inbox"></i>
-                  <p class="mb-0">No bills found with due dates in this date range.</p>
-                </td>
-              </tr>
-            <?php else: ?>
-              <?php foreach ($billRecords as $bill): ?>
-                <?php
-                  $billStatus = strtolower((string) $bill['status']);
-                  $dueDateObj = strtotime((string) $bill['due_date']);
-                  $isOverdue = ($billStatus !== 'paid' && $dueDateObj < strtotime('today'));
-                  
-                  $badgeClass = 'rs-badge-unpaid';
-                  $statusLabel = ucfirst($billStatus);
-                  if ($billStatus === 'paid') {
-                      $badgeClass = 'rs-badge-paid';
-                      $statusLabel = 'Paid';
-                  } elseif ($isOverdue) {
-                      $badgeClass = 'rs-badge-overdue';
-                      $statusLabel = 'Overdue';
-                  } elseif ($billStatus === 'unpaid') {
-                      $badgeClass = 'rs-badge-unpaid';
-                      $statusLabel = 'Unpaid';
-                  }
-                ?>
-                <tr>
-                  <td>
-                    <div class="fw-bold text-main"><?= h((string) $bill['bill_name']) ?></div>
-                  </td>
-                  <td>
-                    <span class="report-tag"><?= h((string) $bill['category_name']) ?></span>
-                  </td>
-                  <td class="text-end fw-bold text-main">
-                    ₱<?= number_format((float) $bill['amount'], 2) ?>
-                  </td>
-                  <td class="text-nowrap">
-                    <?= h(date('M j, Y', $dueDateObj)) ?>
-                  </td>
-                  <td>
-                    <span class="rs-badge <?= $badgeClass ?>">
-                      <span class="badge-dot"></span> <?= h($statusLabel) ?>
-                    </span>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 3. Chore Summary Section -->
-    <section class="report-section-card card-chores">
-      <div class="report-section-header">
-        <div class="report-section-title-wrap">
-          <div class="report-section-icon chores"><i class="bi bi-check2-square"></i></div>
-          <div>
-            <h2 class="h5 fw-bold text-main mb-0">Chore Summary</h2>
-            <small class="text-secondary-custom">Assignments schedule and completion history</small>
-          </div>
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <span class="report-tag"><i class="bi bi-list-check"></i> Household Chores: <strong><?= $totalHouseholdChoresDefined ?></strong></span>
-          <span class="report-tag"><i class="bi bi-calendar3"></i> Scheduled: <strong><?= $totalChoreAssignments ?></strong></span>
-          <span class="rs-badge rs-badge-completed"><span class="badge-dot"></span> Completed: <?= $completedChoresCount ?></span>
-          <span class="rs-badge rs-badge-pending"><span class="badge-dot"></span> Pending: <?= $pendingChoresCount ?></span>
-          <?php if ($overdueChoresCount > 0): ?>
-            <span class="rs-badge rs-badge-overdue"><span class="badge-dot"></span> Overdue: <?= $overdueChoresCount ?></span>
-          <?php endif; ?>
-        </div>
-      </div>
-
-      <!-- Chore Records Table: Chore | Assigned To | Due Date | Status -->
-      <div class="report-table-wrapper">
-        <table class="table report-table">
-          <thead>
-            <tr>
-              <th>Chore</th>
-              <th>Assigned To</th>
-              <th>Due Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (empty($choreRecords)): ?>
-              <tr>
-                <td colspan="4" class="report-empty-state">
-                  <i class="bi bi-inbox"></i>
-                  <p class="mb-0">No chore assignments found due within this period.</p>
-                </td>
-              </tr>
-            <?php else: ?>
-              <?php foreach ($choreRecords as $chore): ?>
-                <?php
-                  $cStatus = strtolower((string) $chore['status']);
-                  $cDueDateObj = strtotime((string) $chore['due_date']);
-                  $isChoreOverdue = ($cStatus !== 'completed' && $cDueDateObj < strtotime('today'));
-
-                  $badgeClass = 'rs-badge-pending';
-                  $choreStatusLabel = ucfirst($cStatus);
-                  if ($cStatus === 'completed') {
-                      $badgeClass = 'rs-badge-completed';
-                      $choreStatusLabel = 'Completed';
-                  } elseif ($isChoreOverdue) {
-                      $badgeClass = 'rs-badge-overdue';
-                      $choreStatusLabel = 'Overdue';
-                  } else {
-                      $badgeClass = 'rs-badge-pending';
-                      $choreStatusLabel = 'Pending';
-                  }
-                ?>
-                <tr>
-                  <td>
-                    <div class="fw-bold text-main"><?= h((string) $chore['chore_name']) ?></div>
-                    <?php if (!empty($chore['frequency'])): ?>
-                      <small class="text-secondary-custom"><?= h((string) $chore['frequency']) ?></small>
-                    <?php endif; ?>
-                  </td>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="member-avatar-pill"><?= h(reports_initials((string) $chore['assigned_to_name'])) ?></div>
-                      <span class="fw-semibold"><?= h((string) $chore['assigned_to_name']) ?></span>
-                    </div>
-                  </td>
-                  <td class="text-nowrap">
-                    <?= h(date('M j, Y', $cDueDateObj)) ?>
-                  </td>
-                  <td>
-                    <span class="rs-badge <?= $badgeClass ?>">
-                      <span class="badge-dot"></span> <?= h($choreStatusLabel) ?>
-                    </span>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 4. Maintenance Summary Section -->
-    <section class="report-section-card card-maintenance">
-      <div class="report-section-header">
-        <div class="report-section-title-wrap">
-          <div class="report-section-icon maintenance"><i class="bi bi-tools"></i></div>
-          <div>
-            <h2 class="h5 fw-bold text-main mb-0">Maintenance Summary</h2>
-            <small class="text-secondary-custom">Track reported household issues, repairs, and current resolution status</small>
-          </div>
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <span class="report-tag"><i class="bi bi-exclamation-diamond"></i> Total Reported: <strong><?= $totalMaintenanceCount ?></strong></span>
-          <span class="rs-badge rs-badge-open"><span class="badge-dot"></span> Open: <?= $openMaintenanceCount ?></span>
-          <span class="rs-badge rs-badge-resolved"><span class="badge-dot"></span> Resolved: <?= $resolvedMaintenanceCount ?></span>
-        </div>
-      </div>
-
-      <!-- Maintenance Records Table: Problem | Type | Reported By | Date | Status -->
-      <div class="report-table-wrapper">
-        <table class="table report-table">
-          <thead>
-            <tr>
-              <th>Problem</th>
-              <th>Type</th>
-              <th>Reported By</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (empty($maintenanceRecords)): ?>
-              <tr>
-                <td colspan="5" class="report-empty-state">
-                  <i class="bi bi-inbox"></i>
-                  <p class="mb-0">No maintenance issues reported for this period.</p>
-                </td>
-              </tr>
-            <?php else: ?>
-              <?php foreach ($maintenanceRecords as $maint): ?>
-                <?php
-                  $mStatus = strtolower((string) $maint['status']);
-                  $mBadgeClass = 'rs-badge-open';
-                  $mLabel = 'Open';
-                  if ($mStatus === 'resolved') {
-                      $mBadgeClass = 'rs-badge-resolved';
-                      $mLabel = 'Resolved';
-                  } elseif ($mStatus === 'in progress' || $mStatus === 'in_progress') {
-                      $mBadgeClass = 'rs-badge-in-progress';
-                      $mLabel = 'In Progress';
-                  } else {
-                      $mBadgeClass = 'rs-badge-open';
-                      $mLabel = ucfirst($mStatus);
-                  }
-                ?>
-                <tr>
-                  <td>
-                    <div class="fw-bold text-main"><?= h((string) $maint['problem_type']) ?></div>
-                    <?php if (!empty($maint['problem_desc'])): ?>
-                      <small class="text-secondary-custom"><?= h((string) $maint['problem_desc']) ?></small>
-                    <?php endif; ?>
-                  </td>
-                  <td>
-                    <span class="report-tag"><?= h((string) $maint['problem_type']) ?></span>
-                  </td>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="member-avatar-pill"><?= h(reports_initials((string) $maint['reported_by_name'])) ?></div>
-                      <span class="fw-semibold"><?= h((string) $maint['reported_by_name']) ?></span>
-                    </div>
-                  </td>
-                  <td class="text-nowrap">
-                    <?= h(date('M j, Y', strtotime((string) $maint['reported_at']))) ?>
-                  </td>
-                  <td>
-                    <span class="rs-badge <?= $mBadgeClass ?>">
-                      <span class="badge-dot"></span> <?= h($mLabel) ?>
-                    </span>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 5. Household Activity Summary Section -->
-    <section class="report-section-card card-household">
-      <div class="report-section-header">
-        <div class="report-section-title-wrap">
-          <div class="report-section-icon activity"><i class="bi bi-activity"></i></div>
-          <div>
-            <h2 class="h5 fw-bold text-main mb-0">Household Activity</h2>
-            <small class="text-secondary-custom">Aggregate activity counts across all household modules</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-6 col-md-4 col-lg-2">
-          <div class="activity-box">
-            <div class="activity-box-icon"><i class="bi bi-people-fill"></i></div>
-            <div>
-              <div class="activity-box-val"><?= $activityMembersCount ?></div>
-              <div class="activity-box-lbl">Members</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-          <div class="activity-box">
-            <div class="activity-box-icon"><i class="bi bi-megaphone-fill"></i></div>
-            <div>
-              <div class="activity-box-val"><?= $activityAnnounceCount ?></div>
-              <div class="activity-box-lbl">Announcements</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-          <div class="activity-box">
-            <div class="activity-box-icon"><i class="bi bi-wallet-fill"></i></div>
-            <div>
-              <div class="activity-box-val"><?= $actExpensesCount ?></div>
-              <div class="activity-box-lbl">Expenses</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-          <div class="activity-box">
-            <div class="activity-box-icon"><i class="bi bi-receipt-cutoff"></i></div>
-            <div>
-              <div class="activity-box-val"><?= $actBillsCount ?></div>
-              <div class="activity-box-lbl">Bills</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-          <div class="activity-box">
-            <div class="activity-box-icon"><i class="bi bi-card-checklist"></i></div>
-            <div>
-              <div class="activity-box-val"><?= $actChoresCreatedCount ?></div>
-              <div class="activity-box-lbl">Chores Created</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-          <div class="activity-box">
-            <div class="activity-box-icon"><i class="bi bi-wrench-adjustable"></i></div>
-            <div>
-              <div class="activity-box-val"><?= $actMaintenanceCount ?></div>
-              <div class="activity-box-lbl">Maintenance</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 6. Member Summary Section -->
-    <section class="report-section-card mb-5">
-      <div class="report-section-header">
-        <div class="report-section-title-wrap">
-          <div class="report-section-icon members"><i class="bi bi-person-badge"></i></div>
-          <div>
-            <h2 class="h5 fw-bold text-main mb-0">Member Summary</h2>
-            <small class="text-secondary-custom">Individual member contributions, chores completed, and share totals</small>
-          </div>
-        </div>
-        <div>
-          <span class="report-tag">
-            <i class="bi bi-people"></i> <?= count($memberSummaryList) ?> Active Member<?= count($memberSummaryList) === 1 ? '' : 's' ?>
-          </span>
-        </div>
-      </div>
-
-      <!-- Member Summary Table: Member | Expenses Paid | Chores Completed | Bill Shares | Maintenance Reports -->
-      <div class="report-table-wrapper">
-        <table class="table report-table">
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th class="text-end">Expenses Paid</th>
-              <th class="text-center">Chores Completed</th>
-              <th class="text-end">Bill Shares</th>
-              <th class="text-center">Maintenance Reports</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (empty($memberSummaryList)): ?>
-              <tr>
-                <td colspan="5" class="report-empty-state">
-                  <i class="bi bi-people"></i>
-                  <p class="mb-0">No household members found.</p>
-                </td>
-              </tr>
-            <?php else: ?>
-              <?php foreach ($memberSummaryList as $mem): ?>
-                <tr>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="member-avatar-pill"><?= h(reports_initials((string) $mem['member_name'])) ?></div>
-                      <div>
-                        <div class="fw-bold text-main"><?= h((string) $mem['member_name']) ?></div>
-                        <span class="role-badge roommate"><?= h((string) $mem['role']) ?></span>
+              <?php else: ?>
+                <?php foreach ($pagedExpenseRecords as $exp): ?>
+                  <tr>
+                    <td class="text-nowrap"><?= h(date('M j, Y', strtotime((string) $exp['expense_date']))) ?></td>
+                    <td>
+                      <div class="fw-bold text-main"><?= h((string) $exp['title']) ?></div>
+                      <?php if (!empty($exp['description'])): ?>
+                        <small class="text-secondary-custom"><?= h((string) $exp['description']) ?></small>
+                      <?php endif; ?>
+                    </td>
+                    <td>
+                      <span class="report-tag"><?= h((string) $exp['category_name']) ?></span>
+                    </td>
+                    <td class="text-end fw-bold text-main">
+                      ₱<?= number_format((float) $exp['amount'], 2) ?>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="member-avatar-pill"><?= h(reports_initials((string) $exp['paid_by_name'])) ?></div>
+                        <span class="fw-semibold"><?= h((string) $exp['paid_by_name']) ?></span>
                       </div>
-                    </div>
-                  </td>
-                  <td class="text-end fw-bold text-main">
-                    ₱<?= number_format((float) $mem['expenses_paid'], 2) ?>
-                  </td>
-                  <td class="text-center">
-                    <span class="badge bg-warm-secondary text-dark-accent border px-2 py-1">
-                      <?= (int) $mem['chores_completed'] ?>
-                    </span>
-                  </td>
-                  <td class="text-end fw-bold text-main">
-                    ₱<?= number_format((float) $mem['bill_shares'], 2) ?>
-                  </td>
-                  <td class="text-center">
-                    <span class="badge bg-warm-secondary text-dark-accent border px-2 py-1">
-                      <?= (int) $mem['maintenance_reports'] ?>
-                    </span>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+        <?= $expReportPagination ? render_pagination($expReportPagination, ['view' => 'expenses', 'from_date' => $fromDate, 'to_date' => $toDate]) : '' ?>
+      </section>
+    <?php endif; ?>
+
+    <!-- ==================================================
+         VIEW 3: BILLS & UTILITIES REPORT
+         ================================================== -->
+    <?php if ($view === 'bills'): ?>
+      <section class="report-section-card card-money">
+        <div class="report-section-header">
+          <div class="report-section-title-wrap">
+            <div class="report-section-icon bills"><i class="bi bi-receipt"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Bill Summary</h2>
+              <small class="text-secondary-custom">Household recurring utilities, due dates, and settlement status</small>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="report-tag"><i class="bi bi-collection"></i> Total Bills: <strong><?= $totalBillsCount ?></strong></span>
+            <span class="report-tag"><i class="bi bi-cash"></i> Amount: <strong>₱<?= number_format($totalBillsAmount, 2) ?></strong></span>
+            <span class="rs-badge rs-badge-paid"><span class="badge-dot"></span> Paid: <?= $paidBillsCount ?></span>
+            <span class="rs-badge rs-badge-unpaid"><span class="badge-dot"></span> Unpaid: <?= $unpaidBillsCount ?></span>
+            <?php if ($overdueBillsCount > 0): ?>
+              <span class="rs-badge rs-badge-overdue"><span class="badge-dot"></span> Overdue: <?= $overdueBillsCount ?></span>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <!-- Bill Records Table: Bill | Category | Amount | Due Date | Status -->
+        <div class="report-table-wrapper">
+          <table class="table report-table">
+            <thead>
+              <tr>
+                <th>Bill</th>
+                <th>Category</th>
+                <th class="text-end">Amount</th>
+                <th>Due Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($billRecords)): ?>
+                <tr>
+                  <td colspan="5" class="report-empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <p class="mb-0">No bills found with due dates in this date range.</p>
                   </td>
                 </tr>
-              <?php endforeach; ?>
+              <?php else: ?>
+                <?php foreach ($pagedBillRecords as $bill): ?>
+                  <?php
+                    $billStatus = strtolower((string) $bill['status']);
+                    $dueDateObj = strtotime((string) $bill['due_date']);
+                    $isOverdue = ($billStatus !== 'paid' && $dueDateObj < strtotime('today'));
+                    
+                    $badgeClass = 'rs-badge-unpaid';
+                    $statusLabel = ucfirst($billStatus);
+                    if ($billStatus === 'paid') {
+                        $badgeClass = 'rs-badge-paid';
+                        $statusLabel = 'Paid';
+                    } elseif ($isOverdue) {
+                        $badgeClass = 'rs-badge-overdue';
+                        $statusLabel = 'Overdue';
+                    } elseif ($billStatus === 'unpaid') {
+                        $badgeClass = 'rs-badge-unpaid';
+                        $statusLabel = 'Unpaid';
+                    }
+                  ?>
+                  <tr>
+                    <td>
+                      <div class="fw-bold text-main"><?= h((string) $bill['bill_name']) ?></div>
+                    </td>
+                    <td>
+                      <span class="report-tag"><?= h((string) $bill['category_name']) ?></span>
+                    </td>
+                    <td class="text-end fw-bold text-main">
+                      ₱<?= number_format((float) $bill['amount'], 2) ?>
+                    </td>
+                    <td class="text-nowrap">
+                      <?= h(date('M j, Y', $dueDateObj)) ?>
+                    </td>
+                    <td>
+                      <span class="rs-badge <?= $badgeClass ?>">
+                        <span class="badge-dot"></span> <?= h($statusLabel) ?>
+                      </span>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+        <?= $billReportPagination ? render_pagination($billReportPagination, ['view' => 'bills', 'from_date' => $fromDate, 'to_date' => $toDate]) : '' ?>
+      </section>
+    <?php endif; ?>
+
+    <!-- ==================================================
+         VIEW 4: CHORES & TASKS REPORT
+         ================================================== -->
+    <?php if ($view === 'chores'): ?>
+      <section class="report-section-card card-chores">
+        <div class="report-section-header">
+          <div class="report-section-title-wrap">
+            <div class="report-section-icon chores"><i class="bi bi-check2-square"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Chore Summary</h2>
+              <small class="text-secondary-custom">Assignments schedule and completion history</small>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="report-tag"><i class="bi bi-list-check"></i> Household Chores: <strong><?= $totalHouseholdChoresDefined ?></strong></span>
+            <span class="report-tag"><i class="bi bi-calendar3"></i> Scheduled: <strong><?= $totalChoreAssignments ?></strong></span>
+            <span class="rs-badge rs-badge-completed"><span class="badge-dot"></span> Completed: <?= $completedChoresCount ?></span>
+            <span class="rs-badge rs-badge-pending"><span class="badge-dot"></span> Pending: <?= $pendingChoresCount ?></span>
+            <?php if ($overdueChoresCount > 0): ?>
+              <span class="rs-badge rs-badge-overdue"><span class="badge-dot"></span> Overdue: <?= $overdueChoresCount ?></span>
             <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </div>
+        </div>
+
+        <!-- Chore Records Table: Chore | Assigned To | Due Date | Status -->
+        <div class="report-table-wrapper">
+          <table class="table report-table">
+            <thead>
+              <tr>
+                <th>Chore</th>
+                <th>Assigned To</th>
+                <th>Due Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($choreRecords)): ?>
+                <tr>
+                  <td colspan="4" class="report-empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <p class="mb-0">No chore assignments found due within this period.</p>
+                  </td>
+                </tr>
+              <?php else: ?>
+                <?php foreach ($pagedChoreRecords as $chore): ?>
+                  <?php
+                    $cStatus = strtolower((string) $chore['status']);
+                    $cDueDateObj = strtotime((string) $chore['due_date']);
+                    $isChoreOverdue = ($cStatus !== 'completed' && $cDueDateObj < strtotime('today'));
+
+                    $badgeClass = 'rs-badge-pending';
+                    $choreStatusLabel = ucfirst($cStatus);
+                    if ($cStatus === 'completed') {
+                        $badgeClass = 'rs-badge-completed';
+                        $choreStatusLabel = 'Completed';
+                    } elseif ($isChoreOverdue) {
+                        $badgeClass = 'rs-badge-overdue';
+                        $choreStatusLabel = 'Overdue';
+                    } else {
+                        $badgeClass = 'rs-badge-pending';
+                        $choreStatusLabel = 'Pending';
+                    }
+                  ?>
+                  <tr>
+                    <td>
+                      <div class="fw-bold text-main"><?= h((string) $chore['chore_name']) ?></div>
+                      <?php if (!empty($chore['frequency'])): ?>
+                        <small class="text-secondary-custom"><?= h((string) $chore['frequency']) ?></small>
+                      <?php endif; ?>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="member-avatar-pill"><?= h(reports_initials((string) $chore['assigned_to_name'])) ?></div>
+                        <span class="fw-semibold"><?= h((string) $chore['assigned_to_name']) ?></span>
+                      </div>
+                    </td>
+                    <td class="text-nowrap">
+                      <?= h(date('M j, Y', $cDueDateObj)) ?>
+                    </td>
+                    <td>
+                      <span class="rs-badge <?= $badgeClass ?>">
+                        <span class="badge-dot"></span> <?= h($choreStatusLabel) ?>
+                      </span>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+        <?= $choreReportPagination ? render_pagination($choreReportPagination, ['view' => 'chores', 'from_date' => $fromDate, 'to_date' => $toDate]) : '' ?>
+      </section>
+    <?php endif; ?>
+
+    <!-- ==================================================
+         VIEW 5: MAINTENANCE & REPAIRS REPORT
+         ================================================== -->
+    <?php if ($view === 'maintenance'): ?>
+      <section class="report-section-card card-maintenance">
+        <div class="report-section-header">
+          <div class="report-section-title-wrap">
+            <div class="report-section-icon maintenance"><i class="bi bi-tools"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Maintenance Summary</h2>
+              <small class="text-secondary-custom">Track reported household issues, repairs, and current resolution status</small>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="report-tag"><i class="bi bi-exclamation-diamond"></i> Total Reported: <strong><?= $totalMaintenanceCount ?></strong></span>
+            <span class="rs-badge rs-badge-open"><span class="badge-dot"></span> Open: <?= $openMaintenanceCount ?></span>
+            <span class="rs-badge rs-badge-resolved"><span class="badge-dot"></span> Resolved: <?= $resolvedMaintenanceCount ?></span>
+          </div>
+        </div>
+
+        <!-- Maintenance Records Table: Problem | Type | Reported By | Date | Status -->
+        <div class="report-table-wrapper">
+          <table class="table report-table">
+            <thead>
+              <tr>
+                <th>Problem</th>
+                <th>Type</th>
+                <th>Reported By</th>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($maintenanceRecords)): ?>
+                <tr>
+                  <td colspan="5" class="report-empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <p class="mb-0">No maintenance issues reported for this period.</p>
+                  </td>
+                </tr>
+              <?php else: ?>
+                <?php foreach ($pagedMaintenanceRecords as $maint): ?>
+                  <?php
+                    $mStatus = strtolower((string) $maint['status']);
+                    $mBadgeClass = 'rs-badge-open';
+                    $mLabel = 'Open';
+                    if ($mStatus === 'resolved') {
+                        $mBadgeClass = 'rs-badge-resolved';
+                        $mLabel = 'Resolved';
+                    } elseif ($mStatus === 'in progress' || $mStatus === 'in_progress') {
+                        $mBadgeClass = 'rs-badge-in-progress';
+                        $mLabel = 'In Progress';
+                    } else {
+                        $mBadgeClass = 'rs-badge-open';
+                        $mLabel = ucfirst($mStatus);
+                    }
+                  ?>
+                  <tr>
+                    <td>
+                      <div class="fw-bold text-main"><?= h((string) $maint['problem_type']) ?></div>
+                      <?php if (!empty($maint['problem_desc'])): ?>
+                        <small class="text-secondary-custom"><?= h((string) $maint['problem_desc']) ?></small>
+                      <?php endif; ?>
+                    </td>
+                    <td>
+                      <span class="report-tag"><?= h((string) $maint['problem_type']) ?></span>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="member-avatar-pill"><?= h(reports_initials((string) $maint['reported_by_name'])) ?></div>
+                        <span class="fw-semibold"><?= h((string) $maint['reported_by_name']) ?></span>
+                      </div>
+                    </td>
+                    <td class="text-nowrap">
+                      <?= h(date('M j, Y', strtotime((string) $maint['reported_at']))) ?>
+                    </td>
+                    <td>
+                      <span class="rs-badge <?= $mBadgeClass ?>">
+                        <span class="badge-dot"></span> <?= h($mLabel) ?>
+                      </span>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+        <?= $maintReportPagination ? render_pagination($maintReportPagination, ['view' => 'maintenance', 'from_date' => $fromDate, 'to_date' => $toDate]) : '' ?>
+      </section>
+    <?php endif; ?>
+
+    <!-- ==================================================
+         VIEW 6: MEMBER PARTICIPATION MATRIX
+         ================================================== -->
+    <?php if ($view === 'members'): ?>
+      <section class="report-section-card mb-5">
+        <div class="report-section-header">
+          <div class="report-section-title-wrap">
+            <div class="report-section-icon members"><i class="bi bi-person-badge"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Member Participation Matrix</h2>
+              <small class="text-secondary-custom">Individual member contributions, chores completed, and share totals</small>
+            </div>
+          </div>
+          <div>
+            <span class="report-tag">
+              <i class="bi bi-people"></i> <?= count($memberSummaryList) ?> Active Member<?= count($memberSummaryList) === 1 ? '' : 's' ?>
+            </span>
+          </div>
+        </div>
+
+        <!-- Member Summary Table: Member | Expenses Paid | Chores Completed | Bill Shares | Maintenance Reports -->
+        <div class="report-table-wrapper">
+          <table class="table report-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th class="text-end">Expenses Paid</th>
+                <th class="text-center">Chores Completed</th>
+                <th class="text-end">Bill Shares</th>
+                <th class="text-center">Maintenance Reports</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($memberSummaryList)): ?>
+                <tr>
+                  <td colspan="5" class="report-empty-state">
+                    <i class="bi bi-people"></i>
+                    <p class="mb-0">No household members found.</p>
+                  </td>
+                </tr>
+              <?php else: ?>
+                <?php foreach ($pagedMemberSummaryList as $mem): ?>
+                  <tr>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="member-avatar-pill"><?= h(reports_initials((string) $mem['member_name'])) ?></div>
+                        <div>
+                          <div class="fw-bold text-main"><?= h((string) $mem['member_name']) ?></div>
+                          <span class="role-badge roommate"><?= h((string) $mem['role']) ?></span>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-end fw-bold text-main">
+                      ₱<?= number_format((float) $mem['expenses_paid'], 2) ?>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge bg-warm-secondary text-dark-accent border px-2 py-1">
+                        <?= (int) $mem['chores_completed'] ?>
+                      </span>
+                    </td>
+                    <td class="text-end fw-bold text-main">
+                      ₱<?= number_format((float) $mem['bill_shares'], 2) ?>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge bg-warm-secondary text-dark-accent border px-2 py-1">
+                        <?= (int) $mem['maintenance_reports'] ?>
+                      </span>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+        <?= $memReportPagination ? render_pagination($memReportPagination, ['view' => 'members', 'from_date' => $fromDate, 'to_date' => $toDate]) : '' ?>
+      </section>
+    <?php endif; ?>
+
+    <!-- ==================================================
+         VIEW 7: HOUSEHOLD ACTIVITY SUMMARY
+         ================================================== -->
+    <?php if ($view === 'activity'): ?>
+      <section class="report-section-card card-household mb-5">
+        <div class="report-section-header">
+          <div class="report-section-title-wrap">
+            <div class="report-section-icon activity"><i class="bi bi-activity"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Household Activity Summary</h2>
+              <small class="text-secondary-custom">Aggregate activity counts across all household operational modules</small>
+            </div>
+          </div>
+          <div>
+            <span class="report-tag">
+              <i class="bi bi-calendar-event"></i> <?= h($formattedFromDate) ?> &ndash; <?= h($formattedToDate) ?>
+            </span>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="activity-box">
+              <div class="activity-box-icon"><i class="bi bi-people-fill"></i></div>
+              <div>
+                <div class="activity-box-val"><?= $activityMembersCount ?></div>
+                <div class="activity-box-lbl">Members</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="activity-box">
+              <div class="activity-box-icon"><i class="bi bi-megaphone-fill"></i></div>
+              <div>
+                <div class="activity-box-val"><?= $activityAnnounceCount ?></div>
+                <div class="activity-box-lbl">Announcements</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="activity-box">
+              <div class="activity-box-icon"><i class="bi bi-wallet-fill"></i></div>
+              <div>
+                <div class="activity-box-val"><?= $actExpensesCount ?></div>
+                <div class="activity-box-lbl">Expenses</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="activity-box">
+              <div class="activity-box-icon"><i class="bi bi-receipt-cutoff"></i></div>
+              <div>
+                <div class="activity-box-val"><?= $actBillsCount ?></div>
+                <div class="activity-box-lbl">Bills</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="activity-box">
+              <div class="activity-box-icon"><i class="bi bi-card-checklist"></i></div>
+              <div>
+                <div class="activity-box-val"><?= $actChoresCreatedCount ?></div>
+                <div class="activity-box-lbl">Chores Created</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="activity-box">
+              <div class="activity-box-icon"><i class="bi bi-wrench-adjustable"></i></div>
+              <div>
+                <div class="activity-box-val"><?= $actMaintenanceCount ?></div>
+                <div class="activity-box-lbl">Maintenance</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded bg-warm-secondary border">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+              <span class="fw-bold text-main d-block">Quick Report Links</span>
+              <small class="text-secondary-custom">Jump to dedicated records for any category above</small>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <a href="reports.php?view=expenses&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-outline btn-sm">
+                <i class="bi bi-wallet2 me-1"></i> Expenses Report
+              </a>
+              <a href="reports.php?view=bills&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-outline btn-sm">
+                <i class="bi bi-receipt me-1"></i> Bills Report
+              </a>
+              <a href="reports.php?view=chores&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-outline btn-sm">
+                <i class="bi bi-check2-square me-1"></i> Chores Report
+              </a>
+              <a href="reports.php?view=maintenance&from_date=<?= urlencode($fromDate) ?>&to_date=<?= urlencode($toDate) ?>" class="btn btn-rs-outline btn-sm">
+                <i class="bi bi-tools me-1"></i> Maintenance Report
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    <?php endif; ?>
 
   </main>
 
