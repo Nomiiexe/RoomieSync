@@ -145,42 +145,69 @@ try {
         }
     }
 
-    // Insert or update shares for selected members
-    $updateShareStmt = $billConnection->prepare(
-        'UPDATE bill_sharesTb
-         SET share_amount = :share_amount,
-             payment_status = :payment_status
-         WHERE bill_share_id = :bill_share_id'
-    );
+    $rawShareStatuses = $_POST['share_status'] ?? [];
 
-    $insertShareStmt = $billConnection->prepare(
-        'INSERT INTO bill_sharesTb (bill_id, user_id, share_amount, payment_status)
-         VALUES (:bill_id, :user_id, :share_amount, :payment_status)'
+    // Prepared statements for payment record synchronization
+    $checkPaymentStmt = $billConnection->prepare(
+        'SELECT payment_id FROM paymentsTb WHERE bill_share_id = :share_id LIMIT 1'
+    );
+    $insertPaymentStmt = $billConnection->prepare(
+        "INSERT INTO paymentsTb (bill_share_id, amount, payment_date, status)
+         VALUES (:share_id, :amount, CURDATE(), 'Paid')"
+    );
+    $deletePaymentStmt = $billConnection->prepare(
+        'DELETE FROM paymentsTb WHERE bill_share_id = :share_id'
     );
 
     foreach ($sanitizedShares as $memberId => $shareAmount) {
+        // Determine individual member payment status
+        if ($updatePaymentStatus) {
+            // If overall bill status was explicitly set to Paid, mark all shares as Paid
+            $newPaymentStatus = 'Paid';
+        } elseif (isset($rawShareStatuses[$memberId])) {
+            $newPaymentStatus = (strcasecmp((string) $rawShareStatuses[$memberId], 'paid') === 0) ? 'Paid' : 'Unpaid';
+        } elseif (isset($existingByUser[$memberId])) {
+            $newPaymentStatus = (string) $existingByUser[$memberId]['payment_status'];
+        } else {
+            $newPaymentStatus = 'Unpaid';
+        }
+
         if (isset($existingByUser[$memberId])) {
             $exShare = $existingByUser[$memberId];
-            $currentPaymentStatus = (string) $exShare['payment_status'];
-            // If overall bill is marked Paid by admin, reflect Paid on shares, else preserve their existing payment_status
-            $newPaymentStatus = $updatePaymentStatus ? 'Paid' : $currentPaymentStatus;
+            $shareId = (int) $exShare['bill_share_id'];
 
             $updateShareStmt->execute([
                 'share_amount' => $shareAmount,
                 'payment_status' => $newPaymentStatus,
-                'bill_share_id' => $exShare['bill_share_id'],
+                'bill_share_id' => $shareId,
             ]);
         } else {
             // New member share added
-            $newPaymentStatus = $updatePaymentStatus ? 'Paid' : 'Unpaid';
             $insertShareStmt->execute([
                 'bill_id' => $billId,
                 'user_id' => $memberId,
                 'share_amount' => $shareAmount,
                 'payment_status' => $newPaymentStatus,
             ]);
+            $shareId = (int) $billConnection->lastInsertId();
+        }
+
+        // Keep paymentsTb in sync
+        if ($newPaymentStatus === 'Paid') {
+            $checkPaymentStmt->execute(['share_id' => $shareId]);
+            if (!$checkPaymentStmt->fetchColumn()) {
+                $insertPaymentStmt->execute([
+                    'share_id' => $shareId,
+                    'amount' => $shareAmount,
+                ]);
+            }
+        } else {
+            $deletePaymentStmt->execute(['share_id' => $shareId]);
         }
     }
+
+    // Automatically synchronize overall bill status with individual shares
+    bill_sync_status($billConnection, $billId, $billHouseholdId);
 
     $billConnection->commit();
     bill_set_flash_and_redirect('Bill updated successfully.');

@@ -106,12 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const memberId = checkbox.value;
         const row = checkbox.closest('.share-member-row');
         const input = form.querySelector(`input[name="shares[${memberId}]"]`);
+        const statusSel = form.querySelector(`.edit-share-status[name="share_status[${memberId}]"]`);
         if (row) row.classList.toggle('is-selected', checkbox.checked);
         if (input) {
           input.disabled = !checkbox.checked;
           if (!checkbox.checked) {
             input.value = '0.00';
           }
+        }
+        if (statusSel) {
+          statusSel.disabled = !checkbox.checked;
         }
         updateSummary();
       });
@@ -301,9 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
           form.querySelector('select[name="category_id"]').value = bill.category_id || '';
           form.querySelector('select[name="status"]').value = bill.status || 'Unpaid';
 
-          // Reset all share checkboxes and inputs
+          // Reset all share checkboxes, inputs, and payment statuses
           const checkboxes = form.querySelectorAll('.edit-member-checkbox');
           const shareInputs = form.querySelectorAll('.edit-share-input');
+          const statusSelects = form.querySelectorAll('.edit-share-status');
 
           checkboxes.forEach((cb) => {
             cb.checked = false;
@@ -315,11 +320,17 @@ document.addEventListener('DOMContentLoaded', () => {
             input.disabled = true;
           });
 
+          statusSelects.forEach((sel) => {
+            sel.value = 'Unpaid';
+            sel.disabled = true;
+          });
+
           // Check and populate existing shares
           if (Array.isArray(bill.shares)) {
             bill.shares.forEach((share) => {
               const cb = form.querySelector(`.edit-member-checkbox[value="${share.user_id}"]`);
               const input = form.querySelector(`input[name="shares[${share.user_id}]"]`);
+              const statusSel = form.querySelector(`.edit-share-status[name="share_status[${share.user_id}]"]`);
               if (cb) {
                 cb.checked = true;
                 cb.closest('.share-member-row')?.classList.add('is-selected');
@@ -327,6 +338,11 @@ document.addEventListener('DOMContentLoaded', () => {
               if (input) {
                 input.disabled = false;
                 input.value = parseFloat(share.share_amount || 0).toFixed(2);
+              }
+              if (statusSel) {
+                statusSel.disabled = false;
+                const isPaid = (share.payment_status || '').toLowerCase() === 'paid';
+                statusSel.value = isPaid ? 'Paid' : 'Unpaid';
               }
             });
           }
@@ -338,6 +354,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+
+    // Wire up "All Paid" and "All Unpaid" buttons inside edit modal
+    const editForm = document.getElementById('editBillForm');
+    if (editForm) {
+      editForm.querySelector('.edit-mark-all-paid')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        editForm.querySelectorAll('.edit-share-status').forEach((sel) => {
+          if (!sel.disabled) {
+            sel.value = 'Paid';
+          }
+        });
+      });
+
+      editForm.querySelector('.edit-mark-all-unpaid')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        editForm.querySelectorAll('.edit-share-status').forEach((sel) => {
+          if (!sel.disabled) {
+            sel.value = 'Unpaid';
+          }
+        });
+      });
+
+      // When overall bill status changes to Paid, offer to set all member shares to Paid
+      editForm.querySelector('select[name="status"]')?.addEventListener('change', (e) => {
+        if (e.target.value === 'Paid') {
+          editForm.querySelectorAll('.edit-share-status').forEach((sel) => {
+            if (!sel.disabled) {
+              sel.value = 'Paid';
+            }
+          });
+        }
+      });
+    }
   }
 
   // Delete Bill Modal Handling

@@ -743,6 +743,21 @@ $notice = consume_flash_message();
                     </td>
                     <td class="text-end">
                       <div class="d-inline-flex align-items-center gap-1">
+                        <!-- Quick Pay Share for Current User if Assigned -->
+                        <?php if ($bill['my_share_id'] !== null): ?>
+                          <?php $mySharePaid = strcasecmp((string) $bill['my_payment_status'], 'paid') === 0; ?>
+                          <form action="actions/bill-share-status.php" method="POST" class="d-inline m-0">
+                            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                            <input type="hidden" name="share_id" value="<?= (int) $bill['my_share_id'] ?>">
+                            <input type="hidden" name="status" value="<?= $mySharePaid ? 'Unpaid' : 'Paid' ?>">
+                            <button type="submit" class="btn btn-sm <?= $mySharePaid ? 'btn-rs-outline text-secondary' : 'btn-rs-primary' ?> py-1 px-2"
+                                    title="<?= $mySharePaid ? 'Mark my personal share as Unpaid' : 'Mark my personal share as Paid' ?>" style="font-size: 0.8rem;">
+                              <i class="bi <?= $mySharePaid ? 'bi-arrow-counterclockwise' : 'bi-check2' ?>"></i>
+                              <span class="d-none d-lg-inline"><?= $mySharePaid ? 'Unpay' : 'Pay Share' ?></span>
+                            </button>
+                          </form>
+                        <?php endif; ?>
+
                         <!-- View Button (All Users) -->
                         <button type="button" class="btn btn-rs-outline btn-sm py-1 px-2 view-bill-btn"
                                 data-bs-toggle="modal" data-bs-target="#viewBillModal"
@@ -1455,12 +1470,20 @@ $notice = consume_flash_message();
                 <div class="border-top pt-3">
                   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <div>
-                      <h6 class="fw-bold text-main mb-0">Update Member Shares</h6>
-                      <small class="text-secondary-custom">Preserves existing payment records while adjusting shares.</small>
+                      <h6 class="fw-bold text-main mb-0">Update Member Shares &amp; Payments</h6>
+                      <small class="text-secondary-custom">Adjust share amounts and mark individual members as Paid or Unpaid.</small>
                     </div>
-                    <button type="button" class="btn btn-rs-outline btn-sm edit-split-equally">
-                      <i class="bi bi-calculator me-1"></i> Split Equally
-                    </button>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                      <button type="button" class="btn btn-rs-outline btn-sm edit-split-equally">
+                        <i class="bi bi-calculator me-1"></i> Split Equally
+                      </button>
+                      <button type="button" class="btn btn-rs-outline btn-sm edit-mark-all-paid text-success" title="Mark all selected members as Paid">
+                        <i class="bi bi-check2-all me-1"></i> All Paid
+                      </button>
+                      <button type="button" class="btn btn-rs-outline btn-sm edit-mark-all-unpaid text-secondary" title="Mark all selected members as Unpaid">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> All Unpaid
+                      </button>
+                    </div>
                   </div>
 
                   <div class="mb-3">
@@ -1474,10 +1497,21 @@ $notice = consume_flash_message();
                               <?= h((string) $m['full_name']) ?> <span class="text-secondary-custom">(@<?= h((string) $m['username']) ?>)</span>
                             </label>
                           </div>
-                          <div class="input-group input-group-sm share-input-group" style="max-width: 170px;">
-                            <span class="input-group-text">₱</span>
-                            <input type="number" step="0.01" min="0.01" class="form-control edit-share-input"
-                                   name="shares[<?= (int) $m['user_id'] ?>]" placeholder="0.00" value="0.00">
+                          <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm share-input-group" style="max-width: 140px;">
+                              <span class="input-group-text">₱</span>
+                              <input type="number" step="0.01" min="0.01" class="form-control edit-share-input"
+                                     name="shares[<?= (int) $m['user_id'] ?>]" placeholder="0.00" value="0.00">
+                            </div>
+                            <select class="form-select form-select-sm edit-share-status"
+                                    name="share_status[<?= (int) $m['user_id'] ?>]"
+                                    id="editShareStatus<?= (int) $m['user_id'] ?>"
+                                    style="width: 105px;"
+                                    title="Payment status for <?= h((string) $m['full_name']) ?>"
+                                    disabled>
+                              <option value="Unpaid">Unpaid</option>
+                              <option value="Paid">Paid</option>
+                            </select>
                           </div>
                         </div>
                       </div>
