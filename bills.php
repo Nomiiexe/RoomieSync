@@ -415,7 +415,7 @@ $notice = consume_flash_message();
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/bills.css">
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body class="d-flex flex-column min-vh-100" data-is-admin="<?= $isAdmin ? '1' : '0' ?>" data-user-id="<?= $userId ?>">
   <!-- Navbar matching RoomieSync design system -->
   <div class="container rs-navbar-wrapper">
     <nav class="rs-pill-nav">

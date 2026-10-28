@@ -27,10 +27,10 @@ if (!$shareRow) {
     expense_set_flash_and_redirect('Expense share record not found.');
 }
 
-// Permission check: Admin, the payer, or the share assignee
+// Permission check: Household Admin only
 $isAdmin = bill_is_admin($expenseConnection, $expenseUserId, $expenseHouseholdId);
-if (!$isAdmin && $expenseUserId !== (int) $shareRow['paid_by'] && $expenseUserId !== (int) $shareRow['user_id']) {
-    expense_set_flash_and_redirect('You do not have permission to update this share status.');
+if (!$isAdmin) {
+    expense_set_flash_and_redirect('Only household administrators can update member payment statuses.');
 }
 
 $update = $expenseConnection->prepare(

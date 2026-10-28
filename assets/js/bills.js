@@ -224,6 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Array.isArray(bill.shares) && bill.shares.length > 0) {
               const csrfTokenEl = document.querySelector('input[name="csrf_token"]');
               const csrfVal = csrfTokenEl ? csrfTokenEl.value : '';
+              const isAdmin = document.body.dataset.isAdmin === '1';
+              const currentUserId = parseInt(document.body.dataset.userId, 10) || 0;
 
               bill.shares.forEach((share) => {
                 const item = document.createElement('div');
@@ -234,7 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const badgeText = isPaid ? 'Paid' : 'Unpaid';
 
                 let actionButtonHtml = '';
-                if (csrfVal !== '') {
+                // Only Admin can mark other members; non-admins can only toggle their own share
+                const canModifyShare = isAdmin || (parseInt(share.user_id, 10) === currentUserId);
+                if (canModifyShare && csrfVal !== '') {
                   const targetStatus = isPaid ? 'Unpaid' : 'Paid';
                   const buttonLabel = isPaid ? 'Mark Unpaid' : 'Mark Paid';
                   const buttonIcon = isPaid ? 'bi-x-circle' : 'bi-check-circle';
@@ -469,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Array.isArray(exp.shares) && exp.shares.length > 0) {
               const csrfTokenEl = document.querySelector('input[name="csrf_token"]');
               const csrfVal = csrfTokenEl ? csrfTokenEl.value : '';
+              const isAdmin = document.body.dataset.isAdmin === '1';
 
               exp.shares.forEach((share) => {
                 const item = document.createElement('div');
@@ -479,7 +484,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const badgeText = isPaid ? 'Paid' : 'Owes Share';
 
                 let actionButtonHtml = '';
-                if (csrfVal !== '') {
+                // Only household administrators can mark member shares as Paid / Unpaid
+                if (isAdmin && csrfVal !== '') {
                   const targetState = isPaid ? 0 : 1;
                   const buttonLabel = isPaid ? 'Mark Unpaid' : 'Mark Paid';
                   const buttonIcon = isPaid ? 'bi-x-circle' : 'bi-check-circle';
