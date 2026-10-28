@@ -321,6 +321,41 @@ p, span, small {
   gap: 1rem;
 }
 
+a.rs-stat-card,
+.rs-stat-card-clickable {
+  text-decoration: none !important;
+  color: inherit !important;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+a.rs-stat-card:hover,
+.rs-stat-card-clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(59, 41, 34, 0.12) !important;
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.rs-stat-arrow {
+  font-size: 1.15rem;
+  opacity: 0.4;
+  transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
+}
+
+a.rs-stat-card:hover .rs-stat-arrow,
+.rs-stat-card-clickable:hover .rs-stat-arrow {
+  opacity: 1;
+  transform: translateX(3px);
+  color: var(--rs-dark-accent) !important;
+}
+
+a.rs-stat-card:hover .rs-stat-label,
+.rs-stat-card-clickable:hover .rs-stat-label {
+  color: var(--rs-dark-accent);
+}
+
 .rs-stat-icon {
   width: 48px;
   height: 48px;
@@ -971,6 +1006,9 @@ form.modal-content {
 /* Base Card Styling with Minimal Left Border Identifier */
 .rs-card[class*="card-"],
 .rs-stat-card[class*="card-"],
+.rs-stat-minimal[class*="card-"],
+.rs-upcoming-card[class*="card-"],
+.rs-card-minimal[class*="card-"],
 .report-stat-card[class*="card-"],
 .report-section-card[class*="card-"],
 .bill-stat-card[class*="card-"],
@@ -982,8 +1020,11 @@ form.modal-content {
   transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-/* Themed Icons inside color-identified Stat Cards - Clean & minimal */
+/* Themed Icons inside color-identified Stat & Section Cards - Clean & minimal */
 .rs-stat-card[class*="card-"] .rs-stat-icon,
+.rs-stat-minimal[class*="card-"] .rs-stat-minimal-icon,
+.rs-upcoming-card[class*="card-"] .rs-upcoming-icon,
+.rs-card-minimal[class*="card-"] .rs-upcoming-icon,
 .bill-stat-card[class*="card-"] .bill-stat-icon,
 .report-stat-card[class*="card-"] .report-stat-icon {
   background-color: var(--card-accent-bg) !important;
@@ -1491,4 +1532,761 @@ form.modal-content {
   border-color: var(--rs-dark-accent);
 }
 
+/* ==================================================
+   ROOMIESYNC REUSABLE MULTI-SELECT SYSTEM
+   ================================================== */
+.rs-select-col {
+  width: 44px;
+  min-width: 44px;
+  text-align: center;
+  vertical-align: middle;
+}
 
+.rs-select-chk {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--rs-warm-tan);
+  cursor: pointer;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+/* Row & Card Selected State Highlight */
+.table > tbody > tr.is-selected > td,
+.table > tbody > tr.is-selected > th,
+.chore-table tbody tr.is-selected > td,
+.bill-table tbody tr.is-selected > td,
+.manage-table tbody tr.is-selected > td,
+.report-table tbody tr.is-selected > td {
+  background-color: rgba(210, 166, 121, 0.16) !important;
+  color: var(--rs-text-heading);
+}
+
+.announcement-card.is-selected,
+.rs-selectable-card.is-selected {
+  border-color: var(--rs-warm-tan) !important;
+  background-color: rgba(210, 166, 121, 0.08) !important;
+  box-shadow: 0 6px 20px rgba(138, 98, 70, 0.16) !important;
+}
+
+/* Floating Contextual Bulk Action Bar */
+.rs-bulk-toolbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(140px);
+  z-index: 1045;
+  width: min(94vw, 760px);
+  background: rgba(255, 254, 252, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-pill);
+  box-shadow: 0 14px 40px rgba(138, 98, 70, 0.22);
+  padding: 0.55rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+}
+
+.rs-bulk-toolbar.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rs-bulk-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.rs-bulk-badge {
+  background: var(--rs-card-secondary);
+  color: var(--rs-dark-accent);
+  border: 1px solid var(--rs-border);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--rs-radius-pill);
+  display: inline-flex;
+  align-items: center;
+}
+
+.rs-bulk-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 576px) {
+  .rs-bulk-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: var(--rs-radius-md);
+    bottom: 12px;
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+  .rs-bulk-actions {
+    justify-content: stretch;
+  }
+  .rs-bulk-actions .btn {
+    flex: 1;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.5rem;
+  }
+}
+
+/* ==================================================
+   INTERACTIVE DASHBOARD CALENDAR
+   ================================================== */
+.rs-calendar-card {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  box-shadow: var(--rs-shadow-subtle);
+  padding: 1.5rem;
+}
+
+.rs-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.rs-cal-month-year {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--rs-text-heading);
+  margin: 0;
+}
+
+.rs-cal-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rs-cal-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.rs-cal-header-cell {
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--rs-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0;
+}
+
+.rs-cal-days-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.rs-cal-cell {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 12px;
+  min-height: 52px;
+  padding: 4px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  color: var(--rs-text-body);
+  position: relative;
+}
+
+.rs-cal-cell:hover:not(.is-selected) {
+  background: var(--rs-card-secondary);
+  color: var(--rs-text-heading);
+  transform: translateY(-1px);
+}
+
+.rs-cal-day-num {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.rs-cal-cell.is-other-month {
+  opacity: 0.32;
+}
+
+.rs-cal-cell.is-today {
+  border: 2px solid var(--rs-warm-tan);
+  color: var(--rs-dark-accent);
+  font-weight: 800;
+}
+
+.rs-cal-cell.is-selected {
+  background: var(--rs-warm-tan) !important;
+  color: #FFFFFF !important;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(210, 166, 121, 0.45);
+}
+
+.rs-cal-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 4px;
+  min-height: 8px;
+}
+
+.rs-cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.rs-cal-dot.dot-chore {
+  background-color: var(--rs-status-green-text);
+}
+
+.rs-cal-dot.dot-bill {
+  background-color: #0284C7;
+}
+
+.rs-cal-cell.is-selected .rs-cal-dot {
+  background-color: #FFFFFF !important;
+}
+
+.rs-cal-task-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 9999px;
+  background: rgba(138, 98, 70, 0.15);
+  color: var(--rs-dark-accent);
+}
+
+.rs-cal-cell.is-selected .rs-cal-task-count {
+  background: rgba(255, 255, 255, 0.35);
+  color: #FFFFFF;
+}
+
+/* Task Inspection Panel */
+.rs-cal-panel-card {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  box-shadow: var(--rs-shadow-subtle);
+  padding: 1.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-cal-panel-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--rs-text-heading);
+}
+
+.rs-cal-task-list {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.rs-cal-open-card-btn {
+  background: var(--rs-card-primary);
+  border: 1px solid var(--rs-border);
+  color: var(--rs-dark-accent);
+  border-radius: var(--rs-radius-pill);
+  transition: all 0.2s ease;
+  font-size: 0.88rem;
+}
+
+.rs-cal-open-card-btn:hover {
+  background-color: var(--rs-accent-light);
+  border-color: var(--rs-border-input);
+  color: var(--rs-text-heading);
+  transform: translateY(-1px);
+}
+
+.rs-cal-header-open-card {
+  color: var(--rs-dark-accent);
+  transition: color 0.15s ease;
+  font-size: 0.82rem;
+}
+
+.rs-cal-header-open-card:hover {
+  color: var(--rs-primary-dark);
+  text-decoration: underline !important;
+}
+
+.rs-cal-modal-task-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+
+
+.rs-cal-task-item {
+  transition: all 0.2s ease;
+  border-color: var(--rs-border) !important;
+}
+
+.rs-cal-task-item:hover {
+  border-color: var(--rs-warm-tan) !important;
+  box-shadow: var(--rs-shadow-hover) !important;
+}
+
+.rs-cal-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.rs-cal-item-icon.icon-chore {
+  background: var(--rs-status-green-bg);
+  color: var(--rs-status-green-text);
+}
+
+.rs-cal-item-icon.icon-bill {
+  background: #E0F2FE;
+  color: #0369A1;
+}
+
+.rs-cal-item-name {
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+/* ====================================================================
+   MINIMALIST UPCOMING DASHBOARD CARDS
+   Clean, un-cluttered, modern layout for chores & bills
+   ==================================================================== */
+.rs-upcoming-card {
+  background-color: var(--rs-card-primary, #ffffff);
+  border: 1px solid var(--rs-border, #E5E7EB);
+  border-radius: var(--rs-radius-lg, 16px);
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 1px 3px rgba(59, 41, 34, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs-upcoming-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(59, 41, 34, 0.07);
+}
+
+.rs-upcoming-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.rs-upcoming-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--rs-text-heading);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  letter-spacing: -0.01em;
+}
+
+.rs-upcoming-title .rs-upcoming-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.rs-upcoming-title .icon-chores {
+  background-color: #EFF6FF;
+  color: #2563EB;
+}
+
+.rs-upcoming-title .icon-bills {
+  background-color: #ECFDF5;
+  color: #059669;
+}
+
+.rs-upcoming-link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--rs-dark-accent);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.rs-upcoming-link:hover {
+  background-color: var(--rs-accent-light);
+  color: var(--rs-dark-accent);
+}
+
+.rs-minimal-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-minimal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.68rem 0.4rem;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.rs-minimal-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0.2rem;
+}
+
+.rs-minimal-item:hover {
+  background-color: rgba(59, 41, 34, 0.025);
+}
+
+.rs-minimal-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.rs-minimal-status-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  background-color: #F3F4F6;
+  color: #6B7280;
+}
+
+.rs-minimal-status-icon.status-overdue {
+  background-color: #FEF2F2;
+  color: #DC2626;
+}
+
+.rs-minimal-status-icon.status-today {
+  background-color: #FFFBEB;
+  color: #D97706;
+}
+
+.rs-minimal-status-icon.status-upcoming {
+  background-color: #EFF6FF;
+  color: #2563EB;
+}
+
+.rs-minimal-content {
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.rs-minimal-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--rs-text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.1rem;
+}
+
+.rs-minimal-meta {
+  font-size: 0.76rem;
+  color: var(--rs-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rs-minimal-meta i {
+  font-size: 0.72rem;
+}
+
+.rs-minimal-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  margin-left: 0.85rem;
+}
+
+.rs-minimal-amount {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--rs-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-minimal-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  line-height: 1.25;
+  display: inline-block;
+}
+
+.rs-minimal-tag.tag-overdue {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.rs-minimal-tag.tag-today {
+  background-color: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FDE68A;
+}
+
+.rs-minimal-tag.tag-soon {
+  background-color: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #BFDBFE;
+}
+
+.rs-minimal-tag.tag-pending {
+  background-color: #F3F4F6;
+  color: #6B7280;
+  border: 1px solid #E5E7EB;
+}
+
+/* ====================================================================
+   MINIMALIST STAT CARDS & DASHBOARD OVERHAUL
+   ==================================================================== */
+.rs-stat-minimal {
+  background-color: var(--rs-card-primary, #ffffff);
+  border: 1px solid var(--rs-border, #E5E7EB);
+  border-radius: var(--rs-radius-lg, 16px);
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 1px 3px rgba(59, 41, 34, 0.04);
+}
+
+.rs-stat-minimal:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 41, 34, 0.2);
+  box-shadow: 0 8px 20px rgba(59, 41, 34, 0.08);
+  color: inherit;
+}
+
+.rs-stat-minimal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.rs-stat-minimal-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rs-text-secondary, #6B7280);
+  margin: 0;
+}
+
+.rs-stat-minimal-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  transition: transform 0.15s ease;
+}
+
+.rs-stat-minimal:hover .rs-stat-minimal-icon {
+  transform: scale(1.08);
+}
+
+.rs-stat-minimal-icon.icon-chores {
+  background-color: #EFF6FF;
+  color: #2563EB;
+}
+
+.rs-stat-minimal-icon.icon-money {
+  background-color: #ECFDF5;
+  color: #059669;
+}
+
+.rs-stat-minimal-icon.icon-bills {
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+
+.rs-stat-minimal-icon.icon-housemates {
+  background-color: #F5F3FF;
+  color: #7C3AED;
+}
+
+.rs-stat-minimal-val {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--rs-text-heading, #1F2937);
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-stat-minimal-sub {
+  font-size: 0.76rem;
+  color: var(--rs-text-secondary, #6B7280);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* General Minimalist Dashboard Card */
+.rs-card-minimal {
+  background-color: var(--rs-card-primary, #ffffff);
+  border: 1px solid var(--rs-border, #E5E7EB);
+  border-radius: var(--rs-radius-lg, 16px);
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 1px 3px rgba(59, 41, 34, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs-card-minimal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(59, 41, 34, 0.07);
+}
+
+.icon-activity {
+  background-color: #F5F3FF;
+  color: #7C3AED;
+}
+
+.icon-notice {
+  background-color: #FFFBEB;
+  color: #D97706;
+}
+
+.icon-expenses {
+  background-color: #ECFDF5;
+  color: #059669;
+}
+
+/* Minimalist Activity Items */
+.rs-minimal-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 0.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background-color 0.15s ease;
+  border-radius: 8px;
+}
+
+.rs-minimal-activity-item:last-child {
+  border-bottom: none;
+}
+
+.rs-minimal-activity-item:hover {
+  background-color: rgba(59, 41, 34, 0.025);
+}
+
+.rs-minimal-activity-body {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--rs-text-heading);
+}
+
+.rs-minimal-activity-time {
+  font-size: 0.73rem;
+  color: var(--rs-text-secondary);
+  display: block;
+  margin-top: 0.15rem;
+}
+
+/* Minimalist Notice Items */
+.rs-minimal-notice-item {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background-color 0.15s ease;
+  border-radius: 8px;
+}
+
+.rs-minimal-notice-item:last-child {
+  border-bottom: none;
+}
+
+.rs-minimal-notice-item:hover {
+  background-color: rgba(59, 41, 34, 0.025);
+}
+
+.rs-minimal-notice-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--rs-text-heading);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rs-minimal-notice-date {
+  font-size: 0.73rem;
+  color: var(--rs-text-secondary);
+  flex-shrink: 0;
+}
+
+.rs-minimal-notice-text {
+  font-size: 0.82rem;
+  color: var(--rs-text-secondary);
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+  line-height: 1.45;
+}

@@ -218,7 +218,7 @@ try {
         $historyPagination = get_pagination_params($totalHistory, 10, [5, 10, 20, 50], 'page', 'per_page');
 
         $historyQuery = $connection->prepare(
-            "SELECT c.chore_name, u.full_name AS completed_by, ca.completed_at, ca.status
+            "SELECT ca.assignment_id, c.chore_name, u.full_name AS completed_by, ca.completed_at, ca.status
              FROM chore_assignmentsTb AS ca
              INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
              INNER JOIN userTb AS u ON u.user_id = ca.user_id
@@ -354,13 +354,54 @@ $defaultDueDate = date('Y-m-d');
       </div>
 
       <?php if ($tab === 'my'): ?>
-        <div class="table-responsive" id="choresTable">
+        <?php
+          // Count how many chores on this page are selectable by current user
+          $selectableCount = 0;
+          foreach ($pagedChores as $c) {
+              $cAssigned = (int) ($c['assigned_user_id'] ?? 0);
+              $cStatus = strtolower((string) ($c['status'] ?? ''));
+              if ($isAdmin || ($cAssigned === $userId && $cStatus !== 'completed')) {
+                  $selectableCount++;
+              }
+          }
+        ?>
+        <div class="table-responsive" id="choresTable" data-rs-selection data-toolbar="#choreBulkToolbar" data-form="#choreBulkForm">
           <table class="table align-middle chore-table mb-0">
-            <thead><tr><th>Chore</th><th>Assigned To</th><th>Due Date</th><th>Frequency</th><th>Status</th><?php if ($isAdmin): ?><th class="text-end">Manage</th><?php endif; ?></tr></thead>
+            <thead>
+              <tr>
+                <th class="rs-select-col">
+                  <?php if ($selectableCount > 0): ?>
+                    <input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all eligible chores on this page">
+                  <?php else: ?>
+                    <span class="text-muted opacity-25">&mdash;</span>
+                  <?php endif; ?>
+                </th>
+                <th>Chore</th>
+                <th>Assigned To</th>
+                <th>Due Date</th>
+                <th>Frequency</th>
+                <th>Status</th>
+                <?php if ($isAdmin): ?><th class="text-end">Manage</th><?php endif; ?>
+              </tr>
+            </thead>
             <tbody>
             <?php foreach ($pagedChores as $chore): ?>
-              <?php $displayStatus = (string) $chore['display_status']; $choreId = (int) $chore['chore_id']; $selectedRotation = $rotationByChore[$choreId] ?? []; ?>
-              <tr>
+              <?php
+                $displayStatus = (string) $chore['display_status'];
+                $choreId = (int) $chore['chore_id'];
+                $selectedRotation = $rotationByChore[$choreId] ?? [];
+                $isAssignedToMe = (int) ($chore['assigned_user_id'] ?? 0) === $userId;
+                $isChoreCompleted = strtolower((string) ($chore['status'] ?? '')) === 'completed';
+                $canSelectThisChore = $isAdmin || ($isAssignedToMe && !$isChoreCompleted);
+              ?>
+              <tr class="<?= $canSelectThisChore ? 'rs-selectable-row' : '' ?>">
+                <td class="rs-select-col">
+                  <?php if ($canSelectThisChore): ?>
+                    <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= (int) ($chore['assignment_id'] ?? $chore['chore_id']) ?>" data-chore-id="<?= $choreId ?>" aria-label="Select <?= h((string) $chore['chore_name']) ?>">
+                  <?php else: ?>
+                    <span class="text-muted opacity-25" title="<?= $isChoreCompleted ? 'Already completed' : 'Assigned to another household member' ?>">&mdash;</span>
+                  <?php endif; ?>
+                </td>
                 <td data-label="Chore"><div class="fw-semibold text-main"><?= h((string) $chore['chore_name']) ?></div><?php if ((string) ($chore['description'] ?? '') !== ''): ?><small class="text-secondary-custom"><?= h((string) $chore['description']) ?></small><?php endif; ?></td>
                 <td data-label="Assigned To"><?= h((string) ($chore['assigned_name'] ?? 'Unassigned')) ?></td>
                 <td data-label="Due Date"><?= h(chore_display_date(isset($chore['due_date']) ? (string) $chore['due_date'] : null)) ?></td>
@@ -369,37 +410,122 @@ $defaultDueDate = date('Y-m-d');
                 <?php if ($isAdmin): ?><td data-label="Manage" class="text-end"><div class="d-flex justify-content-end gap-1"><button class="btn btn-sm btn-rs-outline" type="button" data-bs-toggle="modal" data-bs-target="#editChoreModal<?= $choreId ?>" aria-label="Edit <?= h((string) $chore['chore_name']) ?>"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-rs-outline text-danger chore-delete-trigger" type="button" data-bs-toggle="modal" data-bs-target="#deleteChoreModal" data-chore-id="<?= $choreId ?>" data-chore-name="<?= h((string) $chore['chore_name']) ?>" aria-label="Delete <?= h((string) $chore['chore_name']) ?>"><i class="bi bi-trash3"></i></button></div></td><?php endif; ?>
               </tr>
               <?php if (!$isAdmin && (int) ($chore['assigned_user_id'] ?? 0) === $userId && strtolower((string) ($chore['status'] ?? '')) !== 'completed'): ?>
-                <tr class="chore-complete-row"><td colspan="<?= $isAdmin ? '6' : '5' ?>"><form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end align-items-center gap-2"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>"><span class="small text-secondary-custom me-auto">This chore is assigned to you.</span><button class="btn btn-sm btn-rs-primary" type="submit"><i class="bi bi-check2"></i> Mark Completed</button></form></td></tr>
+                <tr class="chore-complete-row"><td colspan="<?= $isAdmin ? '7' : '6' ?>"><form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end align-items-center gap-2"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>"><span class="small text-secondary-custom me-auto">This chore is assigned to you.</span><button class="btn btn-sm btn-rs-primary" type="submit"><i class="bi bi-check2"></i> Mark Completed</button></form></td></tr>
               <?php elseif ($isAdmin && (int) ($chore['assigned_user_id'] ?? 0) > 0 && strtolower((string) ($chore['status'] ?? '')) !== 'completed'): ?>
-                <tr class="chore-complete-row"><td colspan="6"><form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>"><button class="btn btn-sm btn-rs-outline" type="submit"><i class="bi bi-check2"></i> Mark Completed</button></form></td></tr>
+                <tr class="chore-complete-row"><td colspan="7"><form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>"><button class="btn btn-sm btn-rs-outline" type="submit"><i class="bi bi-check2"></i> Mark Completed</button></form></td></tr>
               <?php endif; ?>
               <?php if ($isAdmin): ?>
-                <tr class="chore-modal-row"><td colspan="6"><div class="modal fade" id="editChoreModal<?= $choreId ?>" tabindex="-1" aria-labelledby="editChoreModalLabel<?= $choreId ?>" aria-hidden="true">
+                <tr class="chore-modal-row"><td colspan="7"><div class="modal fade" id="editChoreModal<?= $choreId ?>" tabindex="-1" aria-labelledby="editChoreModalLabel<?= $choreId ?>" aria-hidden="true">
                   <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content rs-modal"><div class="modal-header rs-modal-header"><h2 class="modal-title h5" id="editChoreModalLabel<?= $choreId ?>">Edit Chore</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
                     <form action="actions/chore-update.php" method="POST"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="chore_id" value="<?= $choreId ?>"><div class="modal-body rs-modal-body"><div class="row g-3"><div class="col-md-7"><label class="form-label" for="editName<?= $choreId ?>">Chore Name *</label><input class="form-control" id="editName<?= $choreId ?>" name="chore_name" maxlength="100" value="<?= h((string) $chore['chore_name']) ?>" required></div><div class="col-md-5"><label class="form-label" for="editCategory<?= $choreId ?>">Category *</label><select class="form-select" id="editCategory<?= $choreId ?>" name="category_id" required><?php foreach ($categories as $category): ?><option value="<?= (int) $category['chore_category_id'] ?>" <?= (int) $category['chore_category_id'] === (int) ($chore['category_id'] ?? 0) ? 'selected' : '' ?>><?= h((string) $category['category_name']) ?></option><?php endforeach; ?></select></div><div class="col-12"><label class="form-label" for="editDescription<?= $choreId ?>">Description</label><textarea class="form-control" id="editDescription<?= $choreId ?>" name="description" rows="2" maxlength="5000"><?= h((string) ($chore['description'] ?? '')) ?></textarea></div><div class="col-md-4"><label class="form-label" for="editFrequency<?= $choreId ?>">Frequency *</label><input class="form-control" id="editFrequency<?= $choreId ?>" name="frequency" maxlength="50" value="<?= h((string) $chore['frequency']) ?>" required></div><div class="col-md-4"><label class="form-label" for="editDueDate<?= $choreId ?>">Due Date *</label><input class="form-control" type="date" id="editDueDate<?= $choreId ?>" name="due_date" value="<?= h((string) ($chore['due_date'] ?? $defaultDueDate)) ?>" required></div><div class="col-md-4"><label class="form-label" for="editType<?= $choreId ?>">Assignment Type *</label><select class="form-select chore-assignment-type" data-target="editAssignmentFields<?= $choreId ?>" id="editType<?= $choreId ?>" name="assignment_type" required><option value="Single" <?= (string) $chore['assignment_type'] === 'Single' ? 'selected' : '' ?>>Single Assignment</option><option value="Rotation" <?= (string) $chore['assignment_type'] === 'Rotation' ? 'selected' : '' ?>>Rotation</option></select></div></div><div id="editAssignmentFields<?= $choreId ?>" class="mt-3"><?php if ((string) $chore['assignment_type'] === 'Single'): ?><label class="form-label" for="editAssigned<?= $choreId ?>">Assign To *</label><select class="form-select" id="editAssigned<?= $choreId ?>" name="assigned_user_id"><?php foreach ($members as $member): ?><option value="<?= (int) $member['user_id'] ?>" <?= (int) $member['user_id'] === (int) ($chore['assigned_user_id'] ?? 0) ? 'selected' : '' ?>><?= h((string) $member['full_name']) ?></option><?php endforeach; ?></select><?php endif; ?><div class="rotation-fields <?= (string) $chore['assignment_type'] === 'Rotation' ? '' : 'd-none' ?>"><label class="form-label">Rotate Between *</label><?php foreach ($members as $member): ?><div class="form-check"><input class="form-check-input" type="checkbox" name="rotation_members[]" value="<?= (int) $member['user_id'] ?>" id="editRot<?= $choreId ?><?= (int) $member['user_id'] ?>" <?= in_array((int) $member['user_id'], $selectedRotation, true) ? 'checked' : '' ?>><label class="form-check-label" for="editRot<?= $choreId ?><?= (int) $member['user_id'] ?>"><?= h((string) $member['full_name']) ?></label></div><?php endforeach; ?></div></div></div><div class="modal-footer rs-modal-footer"><button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-rs-primary"><i class="bi bi-check2"></i> Save Changes</button></div></form>
                   </div></div>
                 </div></td></tr>
               <?php endif; ?>
             <?php endforeach; ?>
-            <?php if ($chores === []): ?><tr><td colspan="<?= $isAdmin ? '6' : '5' ?>" class="text-center py-5"><i class="bi bi-check2-square chore-empty-icon"></i><p class="fw-semibold mb-1">No chores found</p><p class="text-secondary-custom mb-0">Try another filter or add a chore for this household.</p></td></tr><?php endif; ?>
+            <?php if ($chores === []): ?><tr><td colspan="<?= $isAdmin ? '7' : '6' ?>" class="text-center py-5"><i class="bi bi-check2-square chore-empty-icon"></i><p class="fw-semibold mb-1">No chores found</p><p class="text-secondary-custom mb-0">Try another filter or add a chore for this household.</p></td></tr><?php endif; ?>
             </tbody>
           </table>
         </div>
         <?= $chorePagination ? render_pagination($chorePagination, ['tab' => 'my', 'search' => $search, 'status' => $statusFilter]) : '' ?>
       <?php elseif ($tab === 'rotation'): ?>
-        <div class="row g-3">
+        <div class="row g-3" data-rs-selection data-toolbar="#choreBulkToolbar" data-form="#choreBulkForm">
           <?php foreach ($pagedRotationChores as $rotationChore): ?>
             <?php $memberNames = array_map(static fn (array $member): string => (string) $member['full_name'], $rotationChore['members']); $currentIndex = null; foreach ($rotationChore['members'] as $index => $member) { if ((int) $member['user_id'] === (int) $rotationChore['current_user_id']) { $currentIndex = $index; break; } } $nextMember = $rotationChore['members'] !== [] ? $rotationChore['members'][($currentIndex === null ? 0 : ($currentIndex + 1) % count($rotationChore['members']))] : null; ?>
-            <div class="col-12"><article class="rotation-card card-chores"><div class="d-flex flex-column flex-md-row justify-content-between gap-3"><div><h2 class="h5 fw-bold mb-1"><?= h((string) $rotationChore['chore_name']) ?></h2><p class="small text-secondary-custom mb-0"><?= h((string) ($rotationChore['category_name'] ?: 'Uncategorized')) ?> · <?= h((string) $rotationChore['frequency']) ?></p></div><div class="text-md-end"><span class="small text-secondary-custom d-block">Next due</span><strong><?= h(chore_display_date($rotationChore['next_due'] !== null ? (string) $rotationChore['next_due'] : null)) ?></strong></div></div><div class="rotation-flow mt-3"><div><span class="rotation-label">Current</span><strong><?= h((string) ($rotationChore['current_name'] ?: 'Unassigned')) ?></strong></div><i class="bi bi-arrow-right text-dark-accent"></i><div><span class="rotation-label">Next</span><strong><?= h((string) ($nextMember['full_name'] ?? 'Unassigned')) ?></strong></div></div><div class="rotation-sequence mt-3"><span class="rotation-label">Stored rotation order</span><div class="d-flex flex-wrap gap-2"><?php foreach ($rotationChore['members'] as $member): ?><span class="rotation-chip"><?= (int) $member['rotation_order'] ?>. <?= h((string) $member['full_name']) ?></span><?php endforeach; ?></div></div></article></div>
+            <div class="col-12">
+              <article class="rotation-card card-chores rs-selectable-card position-relative">
+                <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+                  <div class="d-flex align-items-start gap-3">
+                    <?php if ($isAdmin): ?>
+                      <div class="pt-1">
+                        <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= (int) $rotationChore['chore_id'] ?>" aria-label="Select <?= h((string) $rotationChore['chore_name']) ?>">
+                      </div>
+                    <?php endif; ?>
+                    <div>
+                      <h2 class="h5 fw-bold mb-1"><?= h((string) $rotationChore['chore_name']) ?></h2>
+                      <p class="small text-secondary-custom mb-0"><?= h((string) ($rotationChore['category_name'] ?: 'Uncategorized')) ?> · <?= h((string) $rotationChore['frequency']) ?></p>
+                    </div>
+                  </div>
+                  <div class="text-md-end"><span class="small text-secondary-custom d-block">Next due</span><strong><?= h(chore_display_date($rotationChore['next_due'] !== null ? (string) $rotationChore['next_due'] : null)) ?></strong></div>
+                </div>
+                <div class="rotation-flow mt-3"><div><span class="rotation-label">Current</span><strong><?= h((string) ($rotationChore['current_name'] ?: 'Unassigned')) ?></strong></div><i class="bi bi-arrow-right text-dark-accent"></i><div><span class="rotation-label">Next</span><strong><?= h((string) ($nextMember['full_name'] ?? 'Unassigned')) ?></strong></div></div>
+                <div class="rotation-sequence mt-3"><span class="rotation-label">Stored rotation order</span><div class="d-flex flex-wrap gap-2"><?php foreach ($rotationChore['members'] as $member): ?><span class="rotation-chip"><?= (int) $member['rotation_order'] ?>. <?= h((string) $member['full_name']) ?></span><?php endforeach; ?></div></div>
+              </article>
+            </div>
           <?php endforeach; ?>
           <?php if ($rotationChores === []): ?><div class="col-12 text-center py-5"><i class="bi bi-arrow-repeat chore-empty-icon"></i><p class="fw-semibold mb-1">No rotation chores found</p><p class="text-secondary-custom mb-0">Rotation assignments for this household will appear here.</p></div><?php endif; ?>
         </div>
         <?= $rotationPagination ? render_pagination($rotationPagination, ['tab' => 'rotation', 'search' => $search]) : '' ?>
       <?php else: ?>
-        <div class="table-responsive"><table class="table align-middle chore-table mb-0"><thead><tr><th>Chore</th><th>Completed By</th><th>Completed Date</th><th>Status</th></tr></thead><tbody><?php foreach ($history as $entry): ?><tr><td data-label="Chore" class="fw-semibold text-main"><?= h((string) $entry['chore_name']) ?></td><td data-label="Completed By"><?= h((string) $entry['completed_by']) ?></td><td data-label="Completed Date"><?= h(chore_display_date((string) $entry['completed_at'])) ?></td><td data-label="Status"><span class="chore-status rs-chore-status-completed"><span class="status-dot"></span>Completed</span></td></tr><?php endforeach; ?><?php if ($history === []): ?><tr><td colspan="4" class="text-center py-5"><i class="bi bi-clock-history chore-empty-icon"></i><p class="fw-semibold mb-1">No completed chores yet</p><p class="text-secondary-custom mb-0">Completed assignments will be kept here as history.</p></td></tr><?php endif; ?></tbody></table></div>
+        <div class="table-responsive" data-rs-selection data-toolbar="#choreBulkToolbar" data-form="#choreBulkForm">
+          <table class="table align-middle chore-table mb-0">
+            <thead>
+              <tr>
+                <?php if ($isAdmin): ?><th class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all history on this page"></th><?php endif; ?>
+                <th>Chore</th>
+                <th>Completed By</th>
+                <th>Completed Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($history as $entry): ?>
+                <tr class="rs-selectable-row">
+                  <?php if ($isAdmin): ?>
+                    <td class="rs-select-col">
+                      <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= (int) ($entry['assignment_id'] ?? 0) ?>" aria-label="Select record">
+                    </td>
+                  <?php endif; ?>
+                  <td data-label="Chore" class="fw-semibold text-main"><?= h((string) $entry['chore_name']) ?></td>
+                  <td data-label="Completed By"><?= h((string) $entry['completed_by']) ?></td>
+                  <td data-label="Completed Date"><?= h(chore_display_date((string) $entry['completed_at'])) ?></td>
+                  <td data-label="Status"><span class="chore-status rs-chore-status-completed"><span class="status-dot"></span>Completed</span></td>
+                </tr>
+              <?php endforeach; ?>
+              <?php if ($history === []): ?><tr><td colspan="<?= $isAdmin ? '5' : '4' ?>" class="text-center py-5"><i class="bi bi-clock-history chore-empty-icon"></i><p class="fw-semibold mb-1">No completed chores yet</p><p class="text-secondary-custom mb-0">Completed assignments will be kept here as history.</p></td></tr><?php endif; ?>
+            </tbody>
+          </table>
+        </div>
         <?= $historyPagination ? render_pagination($historyPagination, ['tab' => 'history', 'search' => $search]) : '' ?>
       <?php endif; ?>
     </div>
+
+    <!-- Floating Contextual Bulk Action Bar -->
+    <div class="rs-bulk-toolbar" id="choreBulkToolbar" aria-hidden="true">
+      <div class="rs-bulk-info">
+        <span class="rs-bulk-badge">
+          <i class="bi bi-check2-circle me-1 text-dark-accent"></i>
+          <span class="rs-bulk-count">0</span> selected
+        </span>
+        <button type="button" class="btn btn-sm btn-link text-decoration-none rs-bulk-clear p-0 text-secondary-custom" style="font-size: 0.85rem;">
+          Clear selection
+        </button>
+      </div>
+      <div class="rs-bulk-actions">
+        <?php if ($tab === 'my'): ?>
+          <button type="button" class="btn btn-sm btn-rs-primary" data-bulk-action="complete">
+            <i class="bi bi-check2-circle me-1"></i> Mark Completed
+          </button>
+        <?php endif; ?>
+        <?php if ($isAdmin): ?>
+          <?php if ($tab === 'history'): ?>
+            <button type="button" class="btn btn-sm btn-rs-outline text-danger" data-bulk-action="delete_history" data-confirm="Are you sure you want to delete {count} selected completed chore records?">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+          <?php else: ?>
+            <button type="button" class="btn btn-sm btn-rs-outline text-danger" data-bulk-action="delete" data-confirm="Are you sure you want to delete {count} selected chores? This will remove all associated assignments and rotation settings.">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+          <?php endif; ?>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <form action="actions/chore-bulk.php" method="POST" id="choreBulkForm" class="d-none">
+      <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="tab" value="<?= h($tab) ?>">
+      <input type="hidden" name="search" value="<?= h($search) ?>">
+      <input type="hidden" name="status" value="<?= h($statusFilter) ?>">
+    </form>
   </main>
 
   <?php if ($isAdmin): ?>
@@ -510,6 +636,7 @@ $defaultDueDate = date('Y-m-d');
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="assets/js/main.js"></script>
+  <script src="assets/js/selection.js"></script>
   <script src="assets/js/chores.js"></script>
 </body>
 </html>

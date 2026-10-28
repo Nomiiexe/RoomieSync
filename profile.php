@@ -134,6 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($errorMessage === '') {
             if ($formFullName === '' || strlen($formFullName) > 100) {
                 $errorMessage = 'Enter your full name with up to 100 characters.';
+            } elseif (!preg_match('/^[\p{L}\s]{2,100}$/u', $formFullName)) {
+                $errorMessage = 'Name cannot contain special characters or numbers. Please use letters and spaces only.';
             } elseif (!preg_match('/\A[A-Za-z0-9_.-]{3,50}\z/', $formUsername)) {
                 $errorMessage = 'Choose a username with 3-50 letters, numbers, dots, underscores, or hyphens.';
             } elseif ($formEmail !== '' && (strlen($formEmail) > 100 || filter_var($formEmail, FILTER_VALIDATE_EMAIL) === false)) {
@@ -473,7 +475,11 @@ $role = $household ? (string) $household['role'] : '';
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="update_profile">
           <div class="modal-body rs-modal-body">
-            <div class="mb-3"><label for="profileFullName" class="form-label">Full name</label><input type="text" class="form-control" id="profileFullName" name="full_name" value="<?= h($formFullName) ?>" maxlength="100" required></div>
+            <div class="mb-3">
+              <label for="profileFullName" class="form-label">Full name</label>
+              <input type="text" class="form-control" id="profileFullName" name="full_name" value="<?= h($formFullName) ?>" minlength="2" maxlength="100" pattern="[A-Za-zÀ-ž\s]{2,100}" title="Name cannot contain special characters or numbers. Please use letters and spaces only." required>
+              <div class="form-text">Letters and spaces only (no numbers or special characters).</div>
+            </div>
             <div class="mb-3"><label for="profileUsername" class="form-label">Username</label><input type="text" class="form-control" id="profileUsername" name="username" value="<?= h($formUsername) ?>" pattern="[A-Za-z0-9_.-]{3,50}" maxlength="50" required></div>
             <div class="mb-3"><label for="profileEmail" class="form-label">Email address</label><input type="email" class="form-control" id="profileEmail" name="email" value="<?= h($formEmail) ?>" maxlength="100"><div class="form-text">Leave blank if you do not want to store an email.</div></div>
             <div class="mb-0">

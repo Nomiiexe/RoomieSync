@@ -166,15 +166,18 @@ if ($mainView === 'bills') {
         $bill['shares'] = $sharesByBill[$billId] ?? [];
 
         // Find current user's share
+        $myShareId = null;
         $myShareAmount = null;
         $myPaymentStatus = null;
         foreach ($bill['shares'] as $sh) {
             if ((int) $sh['user_id'] === $userId) {
+                $myShareId = (int) $sh['bill_share_id'];
                 $myShareAmount = (float) $sh['share_amount'];
                 $myPaymentStatus = (string) $sh['payment_status'];
                 break;
             }
         }
+        $bill['my_share_id'] = $myShareId;
         $bill['my_share_amount'] = $myShareAmount;
         $bill['my_payment_status'] = $myPaymentStatus;
 
@@ -374,15 +377,18 @@ if ($mainView === 'expenses') {
         $exp['expense_date_formatted'] = date('M j, Y', strtotime((string) $exp['expense_date']));
         $exp['created_at_formatted'] = date('M j, Y g:i A', strtotime((string) $exp['created_at']));
 
+        $myExpShareId = null;
         $myExpShare = null;
         $myExpPaid = null;
         foreach ($exp['shares'] as $sh) {
             if ((int) $sh['user_id'] === $userId) {
+                $myExpShareId = (int) $sh['share_id'];
                 $myExpShare = (float) $sh['share_amount'];
                 $myExpPaid = (int) $sh['is_paid'] === 1;
                 break;
             }
         }
+        $exp['my_share_id'] = $myExpShareId;
         $exp['my_share_amount'] = $myExpShare;
         $exp['my_is_paid'] = $myExpPaid;
 
@@ -621,10 +627,17 @@ $notice = consume_flash_message();
 
       <!-- Bill List Table/Card Layout -->
       <section class="rs-card p-0 overflow-hidden mb-4">
-        <div class="bill-table-wrapper">
+        <div class="bill-table-wrapper" data-rs-selection data-toolbar="#billBulkToolbar" data-form="#billBulkForm">
           <table class="table bill-table">
             <thead>
               <tr>
+                <th class="rs-select-col">
+                  <?php if ($isAdmin || $tab === 'my'): ?>
+                    <input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all eligible bills">
+                  <?php else: ?>
+                    <span class="text-muted opacity-25">&mdash;</span>
+                  <?php endif; ?>
+                </th>
                 <th>Bill</th>
                 <th>Category</th>
                 <th>Amount</th>
@@ -638,7 +651,7 @@ $notice = consume_flash_message();
             <tbody>
               <?php if (empty($filteredBills)): ?>
                 <tr>
-                  <td colspan="8" class="text-center py-5 text-secondary-custom">
+                  <td colspan="9" class="text-center py-5 text-secondary-custom">
                     <div class="py-4">
                       <i class="bi bi-receipt-cutoff fs-1 d-block mb-2 text-muted"></i>
                       <div class="fw-bold mb-1">
@@ -680,7 +693,15 @@ $notice = consume_flash_message();
                     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
                   ?>
 
-                  <tr>
+                  <?php $canSelectBill = $isAdmin || ($tab === 'my' && !empty($bill['my_share_id'])); ?>
+                  <tr class="<?= $canSelectBill ? 'rs-selectable-row' : '' ?>">
+                    <td class="rs-select-col">
+                      <?php if ($canSelectBill): ?>
+                        <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= $isAdmin ? (int) $bill['bill_id'] : (int) ($bill['my_share_id'] ?? $bill['bill_id']) ?>" data-bill-id="<?= (int) $bill['bill_id'] ?>">
+                      <?php else: ?>
+                        <span class="text-muted opacity-25" title="No assigned personal share">&mdash;</span>
+                      <?php endif; ?>
+                    </td>
                     <td>
                       <div class="fw-bold text-main"><?= h((string) $bill['bill_name']) ?></div>
                       <div class="text-secondary-custom small d-md-none">
@@ -779,6 +800,47 @@ $notice = consume_flash_message();
         </div>
         <?= $billsPagination ? render_pagination($billsPagination, ['view' => 'bills', 'tab' => $tab, 'search' => $search, 'status' => $statusFilter, 'category' => $categoryFilter > 0 ? $categoryFilter : null]) : '' ?>
       </section>
+
+      <!-- Bills Floating Bulk Toolbar & Form -->
+      <div class="rs-bulk-toolbar" id="billBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+        <div class="rs-bulk-toolbar-info">
+          <span class="rs-bulk-count" data-count="0">0</span>
+          <span class="rs-bulk-label">bills selected</span>
+        </div>
+        <div class="rs-bulk-actions">
+          <?php if ($isAdmin): ?>
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="mark_paid">
+              <i class="bi bi-check2-circle me-1"></i> Mark Paid
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="mark_unpaid">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Mark Unpaid
+            </button>
+            <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete" data-confirm="Are you sure you want to permanently delete the selected bills? All member shares and payment records will also be removed.">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+          <?php elseif ($tab === 'my'): ?>
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="share_paid">
+              <i class="bi bi-check2-circle me-1"></i> Mark My Share Paid
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="share_unpaid">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Mark My Share Unpaid
+            </button>
+          <?php endif; ?>
+          <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+            <i class="bi bi-x-lg me-1"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <form id="billBulkForm" method="POST" action="actions/bill-bulk.php" style="display: none;">
+        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="bulk_action" id="billBulkAction" value="">
+        <input type="hidden" name="view" value="bills">
+        <input type="hidden" name="tab" value="<?= h($tab) ?>">
+        <input type="hidden" name="search" value="<?= h($search) ?>">
+        <input type="hidden" name="status" value="<?= h($statusFilter) ?>">
+        <input type="hidden" name="category" value="<?= (int) $categoryFilter ?>">
+      </form>
 
     <?php else: ?>
       <!-- ========================================== -->
@@ -914,10 +976,11 @@ $notice = consume_flash_message();
 
       <!-- Expense List Table Layout -->
       <section class="rs-card p-0 overflow-hidden mb-4">
-        <div class="bill-table-wrapper">
+        <div class="bill-table-wrapper" data-rs-selection data-toolbar="#expenseBulkToolbar" data-form="#expenseBulkForm">
           <table class="table bill-table">
             <thead>
               <tr>
+                <th class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all expenses"></th>
                 <th>Expense</th>
                 <th>Category</th>
                 <th>Amount</th>
@@ -931,7 +994,7 @@ $notice = consume_flash_message();
             <tbody>
               <?php if (empty($filteredExpenses)): ?>
                 <tr>
-                  <td colspan="8" class="text-center py-5 text-secondary-custom">
+                  <td colspan="9" class="text-center py-5 text-secondary-custom">
                     <div class="py-4">
                       <i class="bi bi-wallet2 fs-1 d-block mb-2 text-muted"></i>
                       <div class="fw-bold mb-1">No household expenses found</div>
@@ -978,7 +1041,15 @@ $notice = consume_flash_message();
                         }
                     }
                   ?>
-                  <tr>
+                  <?php $canSelectExpense = $isAdmin || !empty($exp['my_share_id']); ?>
+                  <tr class="<?= $canSelectExpense ? 'rs-selectable-row' : '' ?>">
+                    <td class="rs-select-col">
+                      <?php if ($canSelectExpense): ?>
+                        <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= $isAdmin ? (int) $exp['expense_id'] : (int) ($exp['my_share_id'] ?? $exp['expense_id']) ?>" data-expense-id="<?= (int) $exp['expense_id'] ?>">
+                      <?php else: ?>
+                        <span class="text-muted opacity-25" title="No assigned personal share">&mdash;</span>
+                      <?php endif; ?>
+                    </td>
                     <td>
                       <div class="fw-bold text-main"><?= h((string) $exp['title']) ?></div>
                       <?php if (!empty($exp['description'])): ?>
@@ -1083,6 +1154,46 @@ $notice = consume_flash_message();
         </div>
         <?= $expensePagination ? render_pagination($expensePagination, ['view' => 'expenses', 'expense_search' => $expenseSearch, 'expense_category' => $expenseCategoryFilter > 0 ? $expenseCategoryFilter : null, 'expense_date_filter' => $expenseDateFilter, 'expense_sort' => $expenseSort]) : '' ?>
       </section>
+
+      <!-- Expenses Floating Bulk Toolbar & Form -->
+      <div class="rs-bulk-toolbar" id="expenseBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+        <div class="rs-bulk-toolbar-info">
+          <span class="rs-bulk-count" data-count="0">0</span>
+          <span class="rs-bulk-label">expenses selected</span>
+        </div>
+        <div class="rs-bulk-actions">
+          <?php if ($isAdmin): ?>
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="mark_settled">
+              <i class="bi bi-check2-circle me-1"></i> Mark Settled
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="mark_unsettled">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Mark Unsettled
+            </button>
+            <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete" data-confirm="Are you sure you want to permanently delete the selected expenses? All member share records will also be removed.">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+          <?php else: ?>
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="share_paid">
+              <i class="bi bi-check2-circle me-1"></i> Mark My Share Paid
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="share_unpaid">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Mark My Share Unpaid
+            </button>
+          <?php endif; ?>
+          <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+            <i class="bi bi-x-lg me-1"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <form id="expenseBulkForm" method="POST" action="actions/expense-bulk.php" style="display: none;">
+        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="bulk_action" id="expenseBulkAction" value="">
+        <input type="hidden" name="expense_search" value="<?= h($expenseSearch) ?>">
+        <input type="hidden" name="expense_category" value="<?= (int) $expenseCategoryFilter ?>">
+        <input type="hidden" name="expense_date_filter" value="<?= h($expenseDateFilter) ?>">
+        <input type="hidden" name="expense_sort" value="<?= h($expenseSort) ?>">
+      </form>
 
     <?php endif; ?>
   </main>
@@ -1775,5 +1886,6 @@ $notice = consume_flash_message();
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="assets/js/bills.js"></script>
+  <script src="assets/js/selection.js"></script>
 </body>
 </html>

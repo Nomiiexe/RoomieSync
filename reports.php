@@ -1748,10 +1748,13 @@ $currentReportTitle = $viewTitles[$view] ?? 'Reports';
         </div>
 
         <!-- Maintenance Records Table: Problem | Type | Reported By | Date | Status -->
-        <div class="report-table-wrapper">
+        <div class="report-table-wrapper" <?= $isAdmin ? 'data-rs-selection data-toolbar="#maintBulkToolbar" data-form="#maintBulkForm"' : '' ?>>
           <table class="table report-table">
             <thead>
               <tr>
+                <?php if ($isAdmin): ?>
+                  <th class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all maintenance reports"></th>
+                <?php endif; ?>
                 <th>Problem</th>
                 <th>Type</th>
                 <th>Reported By</th>
@@ -1762,7 +1765,7 @@ $currentReportTitle = $viewTitles[$view] ?? 'Reports';
             <tbody>
               <?php if (empty($maintenanceRecords)): ?>
                 <tr>
-                  <td colspan="5" class="report-empty-state">
+                  <td colspan="<?= $isAdmin ? 6 : 5 ?>" class="report-empty-state">
                     <i class="bi bi-inbox"></i>
                     <p class="mb-0">No maintenance issues reported for this period.</p>
                   </td>
@@ -1785,6 +1788,9 @@ $currentReportTitle = $viewTitles[$view] ?? 'Reports';
                     }
                   ?>
                   <tr>
+                    <?php if ($isAdmin): ?>
+                      <td class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= (int) $maint['problem_id'] ?>"></td>
+                    <?php endif; ?>
                     <td>
                       <div class="fw-bold text-main"><?= h((string) $maint['problem_type']) ?></div>
                       <?php if (!empty($maint['problem_desc'])): ?>
@@ -1815,6 +1821,36 @@ $currentReportTitle = $viewTitles[$view] ?? 'Reports';
           </table>
         </div>
         <?= $maintReportPagination ? render_pagination($maintReportPagination, ['view' => 'maintenance', 'from_date' => $fromDate, 'to_date' => $toDate]) : '' ?>
+
+        <?php if ($isAdmin): ?>
+          <!-- Maintenance Floating Bulk Toolbar & Form -->
+          <div class="rs-bulk-toolbar" id="maintBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+            <div class="rs-bulk-toolbar-info">
+              <span class="rs-bulk-count" data-count="0">0</span>
+              <span class="rs-bulk-label">reports selected</span>
+            </div>
+            <div class="rs-bulk-actions">
+              <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="resolve">
+                <i class="bi bi-check2-circle me-1"></i> Mark Resolved
+              </button>
+              <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="open">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Reopen
+              </button>
+              <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete" data-confirm="Are you sure you want to permanently delete the selected maintenance reports?">
+                <i class="bi bi-trash3 me-1"></i> Delete Selected
+              </button>
+              <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+                <i class="bi bi-x-lg me-1"></i> Clear
+              </button>
+            </div>
+          </div>
+          <form id="maintBulkForm" method="POST" action="actions/maintenance-bulk.php" style="display: none;">
+            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="bulk_action" id="maintBulkAction" value="">
+            <input type="hidden" name="from_date" value="<?= h($fromDate) ?>">
+            <input type="hidden" name="to_date" value="<?= h($toDate) ?>">
+          </form>
+        <?php endif; ?>
       </section>
     <?php endif; ?>
 
@@ -2003,5 +2039,6 @@ $currentReportTitle = $viewTitles[$view] ?? 'Reports';
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="assets/js/main.js"></script>
   <script src="assets/js/reports.js"></script>
+  <script src="assets/js/selection.js"></script>
 </body>
 </html>

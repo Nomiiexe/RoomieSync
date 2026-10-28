@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorMessage = 'This registration form expired. Please try again.';
     } elseif ($fullName === '' || strlen($fullName) > 100) {
         $errorMessage = 'Enter your name (up to 100 characters).';
+    } elseif (!preg_match('/^[\p{L}\s]{2,100}$/u', $fullName)) {
+        $errorMessage = 'Name cannot contain special characters or numbers. Please use letters and spaces only.';
     } elseif (!preg_match('/\A[A-Za-z0-9_.-]{3,50}\z/', $username)) {
         $errorMessage = 'Choose a username with 3-50 letters, numbers, dots, underscores, or hyphens.';
     } elseif ($email === '' || strlen($email) > 100 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
@@ -113,8 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label for="regFullName" class="form-label">Full Name</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-card-text"></i></span>
-              <input type="text" class="form-control" id="regFullName" name="full_name" value="<?= h($fullName) ?>" autocomplete="name" maxlength="100" required>
+              <input type="text" class="form-control" id="regFullName" name="full_name" value="<?= h($fullName) ?>" autocomplete="name" minlength="2" maxlength="100" pattern="[A-Za-zÀ-ž\s]{2,100}" title="Name cannot contain special characters or numbers. Please use letters and spaces only." required>
             </div>
+            <div class="form-text">Letters and spaces only (no numbers or special characters).</div>
           </div>
 
           <div class="mb-3">

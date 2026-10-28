@@ -39,7 +39,7 @@ try {
     }
     if (!$isAdmin && (int) $assignment['user_id'] !== $choreUserId) {
         $choreConnection->rollBack();
-        chore_set_flash_and_redirect('You do not have permission to complete this chore.');
+        chore_set_flash_and_redirect("You do not have permission to mark other members' chores as done.");
     }
 
     $markCompleted = $choreConnection->prepare(

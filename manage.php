@@ -1265,10 +1265,11 @@ $activityLogs = $activityLogsStmt->fetchAll();
 
         <!-- Chores Category Panel -->
         <div class="category-panel" data-category-type="chore">
-          <div class="manage-table-wrapper">
+          <div class="manage-table-wrapper" data-rs-selection data-toolbar="#choreCatBulkToolbar" data-form="#choreCatBulkForm">
             <table class="table manage-table">
               <thead>
                 <tr>
+                  <th class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all chore categories"></th>
                   <th>Category Name</th>
                   <th>Description</th>
                   <th class="text-center">Used in Chores</th>
@@ -1277,11 +1278,12 @@ $activityLogs = $activityLogsStmt->fetchAll();
               </thead>
               <tbody>
                 <?php if (empty($choreCategories)): ?>
-                  <tr><td colspan="4" class="manage-empty-state"><i class="bi bi-tag"></i><p class="mb-0">No chore categories defined.</p></td></tr>
+                  <tr><td colspan="5" class="manage-empty-state"><i class="bi bi-tag"></i><p class="mb-0">No chore categories defined.</p></td></tr>
                 <?php else: ?>
                   <?php foreach ($choreCategories as $cat): ?>
                     <?php $cId = (int) $cat['chore_category_id']; $cName = (string) $cat['category_name']; $cDesc = (string) ($cat['description'] ?? ''); $uCount = (int) $cat['usage_count']; ?>
                     <tr>
+                      <td class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= $cId ?>"></td>
                       <td class="fw-bold text-main"><?= h($cName) ?></td>
                       <td><?= $cDesc !== '' ? h($cDesc) : '<span class="text-muted fst-italic">None</span>' ?></td>
                       <td class="text-center"><span class="badge bg-warm-secondary text-dark-accent border"><?= $uCount ?></span></td>
@@ -1300,10 +1302,11 @@ $activityLogs = $activityLogsStmt->fetchAll();
 
         <!-- Expenses Category Panel -->
         <div class="category-panel d-none" data-category-type="expense">
-          <div class="manage-table-wrapper">
+          <div class="manage-table-wrapper" data-rs-selection data-toolbar="#expCatBulkToolbar" data-form="#expCatBulkForm">
             <table class="table manage-table">
               <thead>
                 <tr>
+                  <th class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all expense categories"></th>
                   <th>Category Name</th>
                   <th>Description</th>
                   <th class="text-center">Used in Expenses</th>
@@ -1312,11 +1315,12 @@ $activityLogs = $activityLogsStmt->fetchAll();
               </thead>
               <tbody>
                 <?php if (empty($expenseCategories)): ?>
-                  <tr><td colspan="4" class="manage-empty-state"><i class="bi bi-tag"></i><p class="mb-0">No expense categories defined.</p></td></tr>
+                  <tr><td colspan="5" class="manage-empty-state"><i class="bi bi-tag"></i><p class="mb-0">No expense categories defined.</p></td></tr>
                 <?php else: ?>
                   <?php foreach ($expenseCategories as $cat): ?>
                     <?php $cId = (int) $cat['expense_category_id']; $cName = (string) $cat['category_name']; $cDesc = (string) ($cat['description'] ?? ''); $uCount = (int) $cat['usage_count']; ?>
                     <tr>
+                      <td class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= $cId ?>"></td>
                       <td class="fw-bold text-main"><?= h($cName) ?></td>
                       <td><?= $cDesc !== '' ? h($cDesc) : '<span class="text-muted fst-italic">None</span>' ?></td>
                       <td class="text-center"><span class="badge bg-warm-secondary text-dark-accent border"><?= $uCount ?></span></td>
@@ -1335,10 +1339,11 @@ $activityLogs = $activityLogsStmt->fetchAll();
 
         <!-- Bills Category Panel -->
         <div class="category-panel d-none" data-category-type="bill">
-          <div class="manage-table-wrapper">
+          <div class="manage-table-wrapper" data-rs-selection data-toolbar="#billCatBulkToolbar" data-form="#billCatBulkForm">
             <table class="table manage-table">
               <thead>
                 <tr>
+                  <th class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-all" aria-label="Select all bill categories"></th>
                   <th>Category Name</th>
                   <th>Description</th>
                   <th class="text-center">Used in Bills</th>
@@ -1347,11 +1352,12 @@ $activityLogs = $activityLogsStmt->fetchAll();
               </thead>
               <tbody>
                 <?php if (empty($billCategories)): ?>
-                  <tr><td colspan="4" class="manage-empty-state"><i class="bi bi-tag"></i><p class="mb-0">No bill categories defined.</p></td></tr>
+                  <tr><td colspan="5" class="manage-empty-state"><i class="bi bi-tag"></i><p class="mb-0">No bill categories defined.</p></td></tr>
                 <?php else: ?>
                   <?php foreach ($billCategories as $cat): ?>
                     <?php $cId = (int) $cat['bill_category_id']; $cName = (string) $cat['category_name']; $cDesc = (string) ($cat['description'] ?? ''); $uCount = (int) $cat['usage_count']; ?>
                     <tr>
+                      <td class="rs-select-col"><input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= $cId ?>"></td>
                       <td class="fw-bold text-main"><?= h($cName) ?></td>
                       <td><?= $cDesc !== '' ? h($cDesc) : '<span class="text-muted fst-italic">None</span>' ?></td>
                       <td class="text-center"><span class="badge bg-warm-secondary text-dark-accent border"><?= $uCount ?></span></td>
@@ -1367,6 +1373,64 @@ $activityLogs = $activityLogsStmt->fetchAll();
           </div>
           <?= render_pagination($billCatPagination, ['section' => 'categories']) ?>
         </div>
+
+        <!-- Categories Floating Bulk Toolbars & Forms -->
+        <div class="rs-bulk-toolbar" id="choreCatBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+          <div class="rs-bulk-toolbar-info">
+            <span class="rs-bulk-count" data-count="0">0</span>
+            <span class="rs-bulk-label">categories selected</span>
+          </div>
+          <div class="rs-bulk-actions">
+            <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete_chore_categories" data-confirm="Are you sure you want to delete the selected chore categories? Categories currently assigned to chores will be detached.">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+              <i class="bi bi-x-lg me-1"></i> Clear
+            </button>
+          </div>
+        </div>
+        <form id="choreCatBulkForm" method="POST" action="actions/manage-bulk.php" style="display: none;">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="bulk_action" id="choreCatBulkAction" value="delete_chore_categories">
+        </form>
+
+        <div class="rs-bulk-toolbar" id="expCatBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+          <div class="rs-bulk-toolbar-info">
+            <span class="rs-bulk-count" data-count="0">0</span>
+            <span class="rs-bulk-label">categories selected</span>
+          </div>
+          <div class="rs-bulk-actions">
+            <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete_expense_categories" data-confirm="Are you sure you want to delete the selected expense categories?">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+              <i class="bi bi-x-lg me-1"></i> Clear
+            </button>
+          </div>
+        </div>
+        <form id="expCatBulkForm" method="POST" action="actions/manage-bulk.php" style="display: none;">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="bulk_action" id="expCatBulkAction" value="delete_expense_categories">
+        </form>
+
+        <div class="rs-bulk-toolbar" id="billCatBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+          <div class="rs-bulk-toolbar-info">
+            <span class="rs-bulk-count" data-count="0">0</span>
+            <span class="rs-bulk-label">categories selected</span>
+          </div>
+          <div class="rs-bulk-actions">
+            <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete_bill_categories" data-confirm="Are you sure you want to delete the selected bill categories?">
+              <i class="bi bi-trash3 me-1"></i> Delete Selected
+            </button>
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+              <i class="bi bi-x-lg me-1"></i> Clear
+            </button>
+          </div>
+        </div>
+        <form id="billCatBulkForm" method="POST" action="actions/manage-bulk.php" style="display: none;">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="bulk_action" id="billCatBulkAction" value="delete_bill_categories">
+        </form>
       </section>
     <?php endif; ?>
 
@@ -1401,7 +1465,7 @@ $activityLogs = $activityLogsStmt->fetchAll();
         </div>
 
         <!-- Subtab Panel 1: Announcements -->
-        <div class="manage-subtab-panel" data-subtab="announcements">
+        <div class="manage-subtab-panel" data-subtab="announcements" data-rs-selection data-toolbar="#annBulkToolbar" data-form="#annBulkForm">
           <?php if (empty($announcements)): ?>
             <div class="manage-empty-state">
               <i class="bi bi-megaphone"></i>
@@ -1411,6 +1475,14 @@ $activityLogs = $activityLogsStmt->fetchAll();
               </button>
             </div>
           <?php else: ?>
+            <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-warm-secondary rounded border">
+              <div class="form-check m-0">
+                <input type="checkbox" class="form-check-input rs-select-chk rs-select-all" id="annSelectAll" aria-label="Select all announcements">
+                <label class="form-check-label small fw-semibold text-main cursor-pointer" for="annSelectAll">Select All Announcements</label>
+              </div>
+              <small class="text-secondary-custom"><?= $totalAnnouncementsCount ?> announcements total</small>
+            </div>
+
             <div class="row g-3">
               <?php foreach ($announcements as $ann): ?>
                 <?php
@@ -1423,10 +1495,13 @@ $activityLogs = $activityLogsStmt->fetchAll();
                 <div class="col-12 col-lg-6">
                   <div class="announcement-card h-100 d-flex flex-column justify-content-between">
                     <div>
-                      <div class="announcement-meta">
-                        <span><i class="bi bi-person-fill text-dark-accent me-1"></i> <?= h($annAuthor) ?></span>
-                        <span>&bull;</span>
-                        <span><i class="bi bi-clock me-1"></i> <?= h($annDate) ?></span>
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="announcement-meta mb-0">
+                          <span><i class="bi bi-person-fill text-dark-accent me-1"></i> <?= h($annAuthor) ?></span>
+                          <span>&bull;</span>
+                          <span><i class="bi bi-clock me-1"></i> <?= h($annDate) ?></span>
+                        </div>
+                        <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= $annId ?>" aria-label="Select announcement">
                       </div>
                       <h3 class="h6 fw-bold text-main mb-2"><?= h($annTitle) ?></h3>
                       <p class="text-secondary-custom mb-3 small" style="white-space: pre-wrap;"><?= h($annContent) ?></p>
@@ -1450,6 +1525,26 @@ $activityLogs = $activityLogsStmt->fetchAll();
               <?php endforeach; ?>
             </div>
             <?= render_pagination($annPagination, ['section' => 'announcements']) ?>
+
+            <!-- Announcements Floating Bulk Toolbar & Form -->
+            <div class="rs-bulk-toolbar" id="annBulkToolbar" style="display: none;" role="region" aria-label="Bulk actions">
+              <div class="rs-bulk-toolbar-info">
+                <span class="rs-bulk-count" data-count="0">0</span>
+                <span class="rs-bulk-label">announcements selected</span>
+              </div>
+              <div class="rs-bulk-actions">
+                <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete_announcements" data-confirm="Are you sure you want to delete the selected announcements?">
+                  <i class="bi bi-trash3 me-1"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-clear-btn">
+                  <i class="bi bi-x-lg me-1"></i> Clear
+                </button>
+              </div>
+            </div>
+            <form id="annBulkForm" method="POST" action="actions/manage-bulk.php" style="display: none;">
+              <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+              <input type="hidden" name="bulk_action" id="annBulkAction" value="delete_announcements">
+            </form>
           <?php endif; ?>
         </div>
 
@@ -1938,6 +2033,7 @@ $activityLogs = $activityLogsStmt->fetchAll();
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="assets/js/main.js"></script>
   <script src="assets/js/manage.js"></script>
+  <script src="assets/js/selection.js"></script>
   <script>
     // Inline quick chore assignment switcher
     const qChoreType = document.getElementById('quickChoreType');
