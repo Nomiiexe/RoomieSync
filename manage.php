@@ -1958,7 +1958,7 @@ $maintenanceTickets = $maintListStmt->fetchAll();
                     }
 
                     $tReporter = (string) $ticket['reported_by_name'];
-                    $tInitials = household_initials($tReporter);
+                    $tInitials = manage_initials($tReporter);
                   ?>
                   <tr>
                     <td>
