@@ -3,12 +3,25 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/chore-bootstrap.php';
 
+$tab = is_string($_POST['tab'] ?? null) ? trim($_POST['tab']) : 'my';
+$search = is_string($_POST['search'] ?? null) ? trim($_POST['search']) : '';
+$statusFilter = is_string($_POST['status'] ?? null) ? trim($_POST['status']) : 'all';
+
+$redirectUrl = '../chores.php?tab=' . rawurlencode($tab);
+if ($search !== '') {
+    $redirectUrl .= '&search=' . rawurlencode($search);
+}
+if ($statusFilter !== 'all') {
+    $redirectUrl .= '&status=' . rawurlencode($statusFilter);
+}
+
 $rawAssignmentId = $_POST['assignment_id'] ?? null;
 $assignmentId = is_string($rawAssignmentId) && ctype_digit($rawAssignmentId) ? (int) $rawAssignmentId : 0;
 if ($assignmentId < 1) {
-    chore_set_flash_and_redirect('The chore assignment could not be found.');
+    chore_set_flash_and_redirect('The chore assignment could not be found.', $redirectUrl);
 }
 
+$action = is_string($_POST['action'] ?? null) ? strtolower(trim($_POST['action'])) : 'complete';
 $isAdmin = chore_is_admin($choreConnection, $choreUserId, $choreHouseholdId);
 
 try {
@@ -31,71 +44,95 @@ try {
 
     if (!is_array($assignment)) {
         $choreConnection->rollBack();
-        chore_set_flash_and_redirect('The chore assignment could not be found.');
-    }
-    if (strcasecmp((string) $assignment['status'], 'completed') === 0) {
-        $choreConnection->rollBack();
-        chore_set_flash_and_redirect('This chore is already completed.');
-    }
-    if (!$isAdmin && (int) $assignment['user_id'] !== $choreUserId) {
-        $choreConnection->rollBack();
-        chore_set_flash_and_redirect("You do not have permission to mark other members' chores as done.");
+        chore_set_flash_and_redirect('The chore assignment could not be found.', $redirectUrl);
     }
 
-    $markCompleted = $choreConnection->prepare(
-        "UPDATE chore_assignmentsTb
-         SET status = 'Completed', completed_at = NOW()
-         WHERE assignment_id = :assignment_id"
-    );
-    $markCompleted->execute(['assignment_id' => $assignmentId]);
+    $isCompleted = strcasecmp((string) $assignment['status'], 'completed') === 0;
 
-    if (strcasecmp((string) $assignment['assignment_type'], 'Rotation') === 0) {
-        $rotationQuery = $choreConnection->prepare(
-            'SELECT user_id, rotation_order
-             FROM chore_rotationTb
-             WHERE chore_id = :chore_id
-             ORDER BY rotation_order ASC'
+    if ($action === 'uncomplete' || $action === 'incomplete') {
+        if (!$isCompleted) {
+            $choreConnection->rollBack();
+            chore_set_flash_and_redirect('This chore is not currently marked as completed.', $redirectUrl);
+        }
+        if (!$isAdmin && (int) $assignment['user_id'] !== $choreUserId) {
+            $choreConnection->rollBack();
+            chore_set_flash_and_redirect("You do not have permission to modify other members' chores.", $redirectUrl);
+        }
+
+        $markPending = $choreConnection->prepare(
+            "UPDATE chore_assignmentsTb
+             SET status = 'Pending', completed_at = NULL
+             WHERE assignment_id = :assignment_id"
         );
-        $rotationQuery->execute(['chore_id' => (int) $assignment['chore_id']]);
-        $rotation = $rotationQuery->fetchAll();
+        $markPending->execute(['assignment_id' => $assignmentId]);
 
-        if ($rotation !== []) {
-            $currentIndex = null;
-            foreach ($rotation as $index => $rotationMember) {
-                if ((int) $rotationMember['user_id'] === (int) $assignment['user_id']) {
-                    $currentIndex = $index;
-                    break;
+        $choreConnection->commit();
+        chore_set_flash_and_redirect('Chore marked as incomplete (Pending).', $redirectUrl);
+    } else {
+        if ($isCompleted) {
+            $choreConnection->rollBack();
+            chore_set_flash_and_redirect('This chore is already completed.', $redirectUrl);
+        }
+        if (!$isAdmin && (int) $assignment['user_id'] !== $choreUserId) {
+            $choreConnection->rollBack();
+            chore_set_flash_and_redirect("You do not have permission to mark other members' chores as done.", $redirectUrl);
+        }
+
+        $markCompleted = $choreConnection->prepare(
+            "UPDATE chore_assignmentsTb
+             SET status = 'Completed', completed_at = NOW()
+             WHERE assignment_id = :assignment_id"
+        );
+        $markCompleted->execute(['assignment_id' => $assignmentId]);
+
+        if (strcasecmp((string) $assignment['assignment_type'], 'Rotation') === 0) {
+            $rotationQuery = $choreConnection->prepare(
+                'SELECT user_id, rotation_order
+                 FROM chore_rotationTb
+                 WHERE chore_id = :chore_id
+                 ORDER BY rotation_order ASC'
+            );
+            $rotationQuery->execute(['chore_id' => (int) $assignment['chore_id']]);
+            $rotation = $rotationQuery->fetchAll();
+
+            if ($rotation !== []) {
+                $currentIndex = null;
+                foreach ($rotation as $index => $rotationMember) {
+                    if ((int) $rotationMember['user_id'] === (int) $assignment['user_id']) {
+                        $currentIndex = $index;
+                        break;
+                    }
                 }
-            }
 
-            if ($currentIndex !== null) {
-                $nextMember = $rotation[($currentIndex + 1) % count($rotation)];
-                $nextDueDate = chore_next_due_date(
-                    (string) $assignment['frequency'],
-                    (string) $assignment['due_date']
-                );
-                if ($nextDueDate !== null) {
-                    $insertNext = $choreConnection->prepare(
-                        "INSERT INTO chore_assignmentsTb
-                            (chore_id, user_id, due_date, status, completed_at)
-                         VALUES (:chore_id, :user_id, :due_date, 'Pending', NULL)"
+                if ($currentIndex !== null) {
+                    $nextMember = $rotation[($currentIndex + 1) % count($rotation)];
+                    $nextDueDate = chore_next_due_date(
+                        (string) $assignment['frequency'],
+                        (string) $assignment['due_date']
                     );
-                    $insertNext->execute([
-                        'chore_id' => (int) $assignment['chore_id'],
-                        'user_id' => (int) $nextMember['user_id'],
-                        'due_date' => $nextDueDate,
-                    ]);
+                    if ($nextDueDate !== null) {
+                        $insertNext = $choreConnection->prepare(
+                            "INSERT INTO chore_assignmentsTb
+                                (chore_id, user_id, due_date, status, completed_at)
+                             VALUES (:chore_id, :user_id, :due_date, 'Pending', NULL)"
+                        );
+                        $insertNext->execute([
+                            'chore_id' => (int) $assignment['chore_id'],
+                            'user_id' => (int) $nextMember['user_id'],
+                            'due_date' => $nextDueDate,
+                        ]);
+                    }
                 }
             }
         }
-    }
 
-    $choreConnection->commit();
-    chore_set_flash_and_redirect('Chore marked as completed.', '../chores.php?tab=history');
+        $choreConnection->commit();
+        chore_set_flash_and_redirect('Chore marked as completed.', $redirectUrl);
+    }
 } catch (Throwable $error) {
     if ($choreConnection->inTransaction()) {
         $choreConnection->rollBack();
     }
     error_log('RoomieSync chore completion failed: ' . $error->getMessage());
-    chore_set_flash_and_redirect('Unable to complete chore.');
+    chore_set_flash_and_redirect('Unable to update chore status.', $redirectUrl);
 }

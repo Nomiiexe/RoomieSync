@@ -87,35 +87,57 @@ try {
     }
 
     if ($tab === 'my') {
+        if ($statusFilter === 'completed') {
+            $assignmentJoin = "
+                LEFT JOIN chore_assignmentsTb AS ca
+                       ON ca.assignment_id = (
+                           SELECT ca2.assignment_id
+                           FROM chore_assignmentsTb AS ca2
+                           WHERE ca2.chore_id = c.chore_id
+                             AND LOWER(ca2.status) = 'completed'
+                           ORDER BY ca2.completed_at DESC, ca2.assignment_id DESC
+                           LIMIT 1
+                       )
+            ";
+            $assignmentWhere = " AND ca.assignment_id IS NOT NULL";
+            $orderBy = " ORDER BY ca.completed_at DESC, ca.due_date DESC, c.chore_name ASC";
+        } else {
+            $assignmentJoin = "
+                LEFT JOIN chore_assignmentsTb AS ca
+                       ON ca.assignment_id = COALESCE(
+                           (
+                               SELECT ca2.assignment_id
+                               FROM chore_assignmentsTb AS ca2
+                               WHERE ca2.chore_id = c.chore_id
+                                 AND LOWER(ca2.status) <> 'completed'
+                               ORDER BY ca2.due_date ASC, ca2.assignment_id ASC
+                               LIMIT 1
+                           ),
+                           (
+                               SELECT ca3.assignment_id
+                               FROM chore_assignmentsTb AS ca3
+                               WHERE ca3.chore_id = c.chore_id
+                               ORDER BY ca3.assignment_id DESC
+                               LIMIT 1
+                           )
+                       )
+            ";
+            $assignmentWhere = "";
+            $orderBy = " ORDER BY CASE WHEN ca.due_date IS NULL THEN 1 ELSE 0 END, ca.due_date ASC, c.chore_name ASC";
+        }
+
         $choreQuery = $connection->prepare(
             "SELECT c.chore_id, c.category_id, c.chore_name, c.description, c.frequency, c.assignment_type,
                     cat.category_name, ca.assignment_id, ca.user_id AS assigned_user_id,
-                    assigned_user.full_name AS assigned_name, ca.due_date, ca.status
+                    assigned_user.full_name AS assigned_name, ca.due_date, ca.status, ca.completed_at
              FROM choresTb AS c
              LEFT JOIN chore_categoriesTb AS cat
                     ON cat.chore_category_id = c.category_id
                    AND cat.household_id = c.household_id
-             LEFT JOIN chore_assignmentsTb AS ca
-                    ON ca.assignment_id = (
-                        SELECT ca2.assignment_id
-                        FROM chore_assignmentsTb AS ca2
-                        WHERE ca2.chore_id = c.chore_id
-                          AND LOWER(ca2.status) <> 'completed'
-                        ORDER BY ca2.assignment_id DESC
-                        LIMIT 1
-                    )
+             {$assignmentJoin}
              LEFT JOIN userTb AS assigned_user ON assigned_user.user_id = ca.user_id
-             WHERE c.household_id = :household_id
-               AND (
-                   ca.assignment_id IS NOT NULL
-                   OR NOT EXISTS (
-                       SELECT 1
-                       FROM chore_assignmentsTb AS any_assignment
-                       WHERE any_assignment.chore_id = c.chore_id
-                   )
-               ){$searchClause}
-             ORDER BY CASE WHEN ca.due_date IS NULL THEN 1 ELSE 0 END,
-                      ca.due_date ASC, c.chore_name ASC"
+             WHERE c.household_id = :household_id{$assignmentWhere}{$searchClause}
+             {$orderBy}"
         );
         $choreQuery->execute($searchParams);
         $allChores = $choreQuery->fetchAll();
@@ -359,8 +381,8 @@ $defaultDueDate = date('Y-m-d');
           $selectableCount = 0;
           foreach ($pagedChores as $c) {
               $cAssigned = (int) ($c['assigned_user_id'] ?? 0);
-              $cStatus = strtolower((string) ($c['status'] ?? ''));
-              if ($isAdmin || ($cAssigned === $userId && $cStatus !== 'completed')) {
+              $cAssignmentId = (int) ($c['assignment_id'] ?? 0);
+              if ($cAssignmentId > 0 && ($isAdmin || $cAssigned === $userId)) {
                   $selectableCount++;
               }
           }
@@ -392,14 +414,15 @@ $defaultDueDate = date('Y-m-d');
                 $selectedRotation = $rotationByChore[$choreId] ?? [];
                 $isAssignedToMe = (int) ($chore['assigned_user_id'] ?? 0) === $userId;
                 $isChoreCompleted = strtolower((string) ($chore['status'] ?? '')) === 'completed';
-                $canSelectThisChore = $isAdmin || ($isAssignedToMe && !$isChoreCompleted);
+                $hasAssignment = (int) ($chore['assignment_id'] ?? 0) > 0;
+                $canSelectThisChore = $hasAssignment && ($isAdmin || $isAssignedToMe);
               ?>
               <tr class="<?= $canSelectThisChore ? 'rs-selectable-row' : '' ?>">
                 <td class="rs-select-col">
                   <?php if ($canSelectThisChore): ?>
-                    <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= (int) ($chore['assignment_id'] ?? $chore['chore_id']) ?>" data-chore-id="<?= $choreId ?>" aria-label="Select <?= h((string) $chore['chore_name']) ?>">
+                    <input type="checkbox" class="form-check-input rs-select-chk rs-select-item" value="<?= (int) $chore['assignment_id'] ?>" data-chore-id="<?= $choreId ?>" aria-label="Select <?= h((string) $chore['chore_name']) ?>">
                   <?php else: ?>
-                    <span class="text-muted opacity-25" title="<?= $isChoreCompleted ? 'Already completed' : 'Assigned to another household member' ?>">&mdash;</span>
+                    <span class="text-muted opacity-25" title="<?= !$hasAssignment ? 'Unassigned chore' : 'Assigned to another household member' ?>">&mdash;</span>
                   <?php endif; ?>
                 </td>
                 <td data-label="Chore"><div class="fw-semibold text-main"><?= h((string) $chore['chore_name']) ?></div><?php if ((string) ($chore['description'] ?? '') !== ''): ?><small class="text-secondary-custom"><?= h((string) $chore['description']) ?></small><?php endif; ?></td>
@@ -409,10 +432,38 @@ $defaultDueDate = date('Y-m-d');
                 <td data-label="Status"><span class="chore-status <?= h(chore_status_class($displayStatus)) ?>"><span class="status-dot"></span><?= h($displayStatus) ?></span></td>
                 <?php if ($isAdmin): ?><td data-label="Manage" class="text-end"><div class="d-flex justify-content-end gap-1"><button class="btn btn-sm btn-rs-outline" type="button" data-bs-toggle="modal" data-bs-target="#editChoreModal<?= $choreId ?>" aria-label="Edit <?= h((string) $chore['chore_name']) ?>"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-rs-outline text-danger chore-delete-trigger" type="button" data-bs-toggle="modal" data-bs-target="#deleteChoreModal" data-chore-id="<?= $choreId ?>" data-chore-name="<?= h((string) $chore['chore_name']) ?>" aria-label="Delete <?= h((string) $chore['chore_name']) ?>"><i class="bi bi-trash3"></i></button></div></td><?php endif; ?>
               </tr>
-              <?php if (!$isAdmin && (int) ($chore['assigned_user_id'] ?? 0) === $userId && strtolower((string) ($chore['status'] ?? '')) !== 'completed'): ?>
-                <tr class="chore-complete-row"><td colspan="<?= $isAdmin ? '7' : '6' ?>"><form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end align-items-center gap-2"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>"><span class="small text-secondary-custom me-auto">This chore is assigned to you.</span><button class="btn btn-sm btn-rs-primary" type="submit"><i class="bi bi-check2"></i> Mark Completed</button></form></td></tr>
-              <?php elseif ($isAdmin && (int) ($chore['assigned_user_id'] ?? 0) > 0 && strtolower((string) ($chore['status'] ?? '')) !== 'completed'): ?>
-                <tr class="chore-complete-row"><td colspan="7"><form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>"><button class="btn btn-sm btn-rs-outline" type="submit"><i class="bi bi-check2"></i> Mark Completed</button></form></td></tr>
+              <?php if ($hasAssignment): ?>
+                <tr class="chore-complete-row">
+                  <td colspan="<?= $isAdmin ? '7' : '6' ?>">
+                    <form action="actions/chore-complete.php" method="POST" class="d-flex justify-content-end align-items-center gap-2">
+                      <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                      <input type="hidden" name="assignment_id" value="<?= (int) $chore['assignment_id'] ?>">
+                      <input type="hidden" name="tab" value="<?= h($tab) ?>">
+                      <input type="hidden" name="search" value="<?= h($search) ?>">
+                      <input type="hidden" name="status" value="<?= h($statusFilter) ?>">
+                      <?php if ($isChoreCompleted): ?>
+                        <input type="hidden" name="action" value="uncomplete">
+                        <span class="small text-secondary-custom me-auto">
+                          <i class="bi bi-check-circle-fill text-success me-1"></i> Completed<?= !empty($chore['completed_at']) ? ' on ' . h(chore_display_date((string) $chore['completed_at'])) : '' ?><?= !empty($chore['assigned_name']) ? ' by ' . h((string) $chore['assigned_name']) : '' ?>.
+                        </span>
+                        <?php if ($isAdmin || $isAssignedToMe): ?>
+                          <button class="btn btn-sm btn-rs-outline" type="submit" title="Mark as incomplete (Pending)">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Mark Incomplete
+                          </button>
+                        <?php endif; ?>
+                      <?php else: ?>
+                        <input type="hidden" name="action" value="complete">
+                        <?php if ($isAssignedToMe): ?>
+                          <span class="small text-secondary-custom me-auto">This chore is assigned to you.</span>
+                          <button class="btn btn-sm btn-rs-primary" type="submit"><i class="bi bi-check2 me-1"></i> Mark Completed</button>
+                        <?php elseif ($isAdmin): ?>
+                          <span class="small text-secondary-custom me-auto">Assigned to <?= h((string) ($chore['assigned_name'] ?? 'member')) ?>.</span>
+                          <button class="btn btn-sm btn-rs-outline" type="submit"><i class="bi bi-check2 me-1"></i> Mark Completed</button>
+                        <?php endif; ?>
+                      <?php endif; ?>
+                    </form>
+                  </td>
+                </tr>
               <?php endif; ?>
               <?php if ($isAdmin): ?>
                 <tr class="chore-modal-row"><td colspan="7"><div class="modal fade" id="editChoreModal<?= $choreId ?>" tabindex="-1" aria-labelledby="editChoreModalLabel<?= $choreId ?>" aria-hidden="true">
@@ -504,6 +555,9 @@ $defaultDueDate = date('Y-m-d');
         <?php if ($tab === 'my'): ?>
           <button type="button" class="btn btn-sm btn-rs-primary" data-bulk-action="complete">
             <i class="bi bi-check2-circle me-1"></i> Mark Completed
+          </button>
+          <button type="button" class="btn btn-sm btn-rs-outline text-main" data-bulk-action="uncomplete">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Mark Incomplete
           </button>
         <?php endif; ?>
         <?php if ($isAdmin): ?>

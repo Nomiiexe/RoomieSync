@@ -124,7 +124,17 @@ if ($action === 'complete') {
             $word = $completedCount === 1 ? 'chore' : 'chores';
             chore_set_flash_and_redirect("{$completedCount} {$word} marked as completed.", $redirectUrl);
         } else {
-            chore_set_flash_and_redirect("No eligible chores were completed. You do not have permission to mark other members' chores as done.", $redirectUrl);
+            // Check if items were already completed
+            $checkAll = $choreConnection->prepare(
+                "SELECT COUNT(*) FROM chore_assignmentsTb WHERE assignment_id IN ({$inPlaceholders}) AND LOWER(status) = 'completed'"
+            );
+            $checkAll->execute($selectedIds);
+            $alreadyCompleted = (int) $checkAll->fetchColumn();
+            if ($alreadyCompleted > 0) {
+                chore_set_flash_and_redirect('Selected chore(s) are already marked as completed.', $redirectUrl);
+            } else {
+                chore_set_flash_and_redirect("No eligible chores were completed. You do not have permission to mark other members' chores as done.", $redirectUrl);
+            }
         }
     } catch (Throwable $e) {
         if ($choreConnection->inTransaction()) {
@@ -132,6 +142,60 @@ if ($action === 'complete') {
         }
         error_log('Chore bulk complete error: ' . $e->getMessage());
         chore_set_flash_and_redirect('Failed to complete selected chores.', $redirectUrl);
+    }
+} elseif ($action === 'uncomplete') {
+    $uncompletedCount = 0;
+    try {
+        $choreConnection->beginTransaction();
+
+        $inPlaceholders = implode(',', array_fill(0, count($selectedIds), '?'));
+        
+        // Fetch all matching completed assignments belonging to this household
+        $querySql = "
+            SELECT ca.assignment_id, ca.user_id, ca.status
+            FROM chore_assignmentsTb AS ca
+            INNER JOIN choresTb AS c ON c.chore_id = ca.chore_id
+            WHERE ca.assignment_id IN ({$inPlaceholders})
+              AND c.household_id = ?
+              AND LOWER(ca.status) = 'completed'
+            FOR UPDATE
+        ";
+        $params = array_merge($selectedIds, [$choreHouseholdId]);
+        $stmt = $choreConnection->prepare($querySql);
+        $stmt->execute($params);
+        $assignments = $stmt->fetchAll();
+
+        foreach ($assignments as $assignment) {
+            $assignmentId = (int) $assignment['assignment_id'];
+            $assignedUserId = (int) $assignment['user_id'];
+
+            if (!$isAdmin && $assignedUserId !== $choreUserId) {
+                continue;
+            }
+
+            $update = $choreConnection->prepare(
+                "UPDATE chore_assignmentsTb
+                 SET status = 'Pending', completed_at = NULL
+                 WHERE assignment_id = ?"
+            );
+            $update->execute([$assignmentId]);
+            $uncompletedCount++;
+        }
+
+        $choreConnection->commit();
+
+        if ($uncompletedCount > 0) {
+            $word = $uncompletedCount === 1 ? 'chore' : 'chores';
+            chore_set_flash_and_redirect("{$uncompletedCount} {$word} marked as incomplete (Pending).", $redirectUrl);
+        } else {
+            chore_set_flash_and_redirect("No eligible completed chores were updated.", $redirectUrl);
+        }
+    } catch (Throwable $e) {
+        if ($choreConnection->inTransaction()) {
+            $choreConnection->rollBack();
+        }
+        error_log('Chore bulk uncomplete error: ' . $e->getMessage());
+        chore_set_flash_and_redirect('Failed to update selected chores.', $redirectUrl);
     }
 } elseif ($action === 'delete') {
     chore_action_require_admin($choreConnection, $choreUserId, $choreHouseholdId);
