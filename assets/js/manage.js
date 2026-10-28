@@ -242,6 +242,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Edit Maintenance Report Modal prefill
+  const editMaintBtns = document.querySelectorAll('.btn-edit-maintenance');
+  const editMaintId = document.getElementById('editMaintId');
+  const editMaintType = document.getElementById('editMaintType');
+  const editMaintStatus = document.getElementById('editMaintStatus');
+  const editMaintDesc = document.getElementById('editMaintDesc');
+
+  editMaintBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (editMaintId) editMaintId.value = btn.getAttribute('data-id') || '';
+      if (editMaintType) editMaintType.value = btn.getAttribute('data-type') || 'Plumbing';
+      if (editMaintStatus) editMaintStatus.value = btn.getAttribute('data-status') || 'Open';
+      if (editMaintDesc) editMaintDesc.value = btn.getAttribute('data-desc') || '';
+    });
+  });
+
   // ==================================================
   // 5. LIVE SEARCH & BANNER PREVIEW & COPY CODE
   // ==================================================
@@ -259,21 +275,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Household Banner Live Preview
+  // Household Banner Live Preview & Drag-and-Drop
   const imageInput = document.getElementById('householdImageFileInput');
   const previewBox = document.getElementById('householdImagePreviewBox');
   if (imageInput && previewBox) {
+    const handleBannerFile = (file) => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        previewBox.innerHTML = `
+          <img src="${event.target.result}" alt="Preview" class="household-banner-img mb-2">
+          <small class="text-success fw-bold d-block"><i class="bi bi-check2-circle"></i> Ready to upload: ${file.name}</small>
+        `;
+      };
+      reader.readAsDataURL(file);
+    };
+
     imageInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          previewBox.innerHTML = `
-            <img src="${event.target.result}" alt="Preview" class="household-banner-img mb-2">
-            <small class="text-success fw-bold d-block"><i class="bi bi-check2-circle"></i> Ready to upload: ${file.name}</small>
-          `;
-        };
-        reader.readAsDataURL(file);
+      handleBannerFile(e.target.files[0]);
+    });
+
+    ['dragenter', 'dragover'].forEach((evt) => {
+      previewBox.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        previewBox.classList.add('border-primary', 'opacity-75');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((evt) => {
+      previewBox.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        previewBox.classList.remove('border-primary', 'opacity-75');
+      });
+    });
+
+    previewBox.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length > 0) {
+        imageInput.files = dt.files;
+        handleBannerFile(dt.files[0]);
       }
     });
   }

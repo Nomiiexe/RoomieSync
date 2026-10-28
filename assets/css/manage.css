@@ -401,6 +401,7 @@
 .manage-card-icon.actions { background: var(--rs-status-green-bg); color: var(--rs-status-green-text); }
 .manage-card-icon.activity { background: #F5F3FF; color: #6D28D9; }
 .manage-card-icon.settings { background: #FFF1F2; color: #BE123C; }
+.manage-card-icon.maintenance { background: rgba(224, 86, 36, 0.12); color: var(--rs-primary, #E05624); }
 
 /* Category Type Overview Cards */
 .category-overview-card {

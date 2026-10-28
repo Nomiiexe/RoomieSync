@@ -222,3 +222,9 @@
   border: 1px solid #C7D2FE;
 }
 
+.activity-icon-badge.maintenance {
+  background-color: rgba(224, 86, 36, 0.12);
+  color: var(--rs-primary, #E05624);
+  border: 1px solid rgba(224, 86, 36, 0.25);
+}
+

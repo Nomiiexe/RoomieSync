@@ -506,7 +506,7 @@ $role = $household ? (string) $household['role'] : '';
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="upload_avatar">
           <div class="modal-body rs-modal-body">
-            <div class="d-flex flex-column align-items-center justify-content-center p-3 mb-3 bg-warm-secondary rounded-3 border">
+            <div class="d-flex flex-column align-items-center justify-content-center p-3 mb-3 bg-warm-secondary rounded-3 border" id="avatarDropZone" style="transition: all 0.2s ease;">
               <div class="rs-avatar avatar-lg shadow-sm mb-2" id="avatarModalPreviewWrapper" style="background-color: var(--rs-card-primary); color: var(--rs-dark-accent); width: 88px; height: 88px; font-size: 2rem;">
                 <?php if ($formProfilePic !== ''): ?>
                   <img src="<?= h($formProfilePic) ?>" alt="Preview" id="avatarModalPreviewImg">
@@ -514,7 +514,10 @@ $role = $household ? (string) $household['role'] : '';
                   <span id="avatarModalPreviewText"><?= h(profile_initials($formFullName)) ?></span>
                 <?php endif; ?>
               </div>
-              <small class="text-secondary-custom" id="avatarUploadPrompt"><?= $formProfilePic !== '' ? 'Current profile picture' : 'Default avatar (no picture uploaded)' ?></small>
+              <small class="text-secondary-custom text-center" id="avatarUploadPrompt">
+                <?= $formProfilePic !== '' ? 'Current profile picture' : 'Default avatar (no picture uploaded)' ?>
+                <span class="d-block text-muted small mt-1"><i class="bi bi-cloud-arrow-up me-1"></i>Drag &amp; drop an image here or choose below</span>
+              </small>
             </div>
 
             <div class="mb-3">
@@ -596,22 +599,50 @@ $role = $household ? (string) $household['role'] : '';
       });
     });
 
-    // Avatar live preview
+    // Avatar live preview & dropzone
     const picInput = document.getElementById('modalProfilePicInput');
     const previewWrapper = document.getElementById('avatarModalPreviewWrapper');
     const uploadPrompt = document.getElementById('avatarUploadPrompt');
+    const dropZone = document.getElementById('avatarDropZone');
+
+    function handleAvatarFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        previewWrapper.innerHTML = '<img src="' + e.target.result + '" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">';
+        if (uploadPrompt) {
+          uploadPrompt.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check2-circle me-1"></i> Ready to save (' + file.name + ')</span>';
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
     if (picInput && previewWrapper) {
       picInput.addEventListener('change', function () {
-        const file = this.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            previewWrapper.innerHTML = '<img src="' + e.target.result + '" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">';
-            if (uploadPrompt) {
-              uploadPrompt.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check2-circle me-1"></i> Ready to save (' + file.name + ')</span>';
-            }
-          };
-          reader.readAsDataURL(file);
+        handleAvatarFile(this.files[0]);
+      });
+    }
+
+    if (dropZone && picInput) {
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        dropZone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('border-primary', 'bg-light');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (evt) {
+        dropZone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('border-primary', 'bg-light');
+        });
+      });
+      dropZone.addEventListener('drop', function (e) {
+        const dt = e.dataTransfer;
+        if (dt && dt.files && dt.files.length > 0) {
+          picInput.files = dt.files;
+          handleAvatarFile(dt.files[0]);
         }
       });
     }
@@ -619,8 +650,13 @@ $role = $household ? (string) $household['role'] : '';
     const removeBtn = document.getElementById('btnTriggerRemoveAvatar');
     const removeForm = document.getElementById('removeAvatarForm');
     if (removeBtn && removeForm) {
-      removeBtn.addEventListener('click', function () {
-        if (confirm('Are you sure you want to remove your custom profile picture and revert to initials?')) {
+      removeBtn.addEventListener('click', async function () {
+        const ok = await showConfirmDialog('Are you sure you want to remove your custom profile picture and revert to initials?', {
+          title: 'Remove Profile Picture',
+          confirmText: 'Remove Photo',
+          variant: 'danger'
+        });
+        if (ok) {
           removeForm.submit();
         }
       });

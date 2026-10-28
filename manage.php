@@ -152,9 +152,9 @@ if (!function_exists('manage_set_flash_and_redirect')) {
     }
 }
 
-// Determine active openable page section (overview, users, categories, announcements, settings)
+// Determine active openable page section (overview, users, categories, announcements, settings, maintenance)
 $section = isset($_GET['section']) ? strtolower(trim((string)$_GET['section'])) : '';
-$validSections = ['overview', 'users', 'categories', 'announcements', 'settings'];
+$validSections = ['overview', 'users', 'categories', 'announcements', 'settings', 'maintenance'];
 if (!in_array($section, $validSections, true)) {
     $section = 'overview';
 }
@@ -598,6 +598,84 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
     }
 
+    // 11. UPDATE MAINTENANCE REPORT
+    if ($action === 'update_maintenance') {
+        $rawProbId = $_POST['problem_id'] ?? null;
+        $probId = is_string($rawProbId) && ctype_digit($rawProbId) ? (int) $rawProbId : 0;
+        $probType = trim(is_string($_POST['problem_type'] ?? null) ? $_POST['problem_type'] : '');
+        $status = trim(is_string($_POST['status'] ?? null) ? $_POST['status'] : '');
+        $probDesc = trim(is_string($_POST['problem_desc'] ?? null) ? $_POST['problem_desc'] : '');
+
+        if ($probId < 1) {
+            manage_set_flash_and_redirect('Invalid maintenance report specified.', 'danger', 'manage.php?section=maintenance');
+        }
+        if ($probType === '' || mb_strlen($probType) > 50) {
+            manage_set_flash_and_redirect('Provide a valid problem type (up to 50 characters).', 'danger', 'manage.php?section=maintenance');
+        }
+        $validStatuses = ['Open', 'In Progress', 'Resolved'];
+        if (!in_array($status, $validStatuses, true)) {
+            manage_set_flash_and_redirect('Invalid maintenance status.', 'danger', 'manage.php?section=maintenance');
+        }
+
+        $checkMaint = $connection->prepare('SELECT problem_id FROM maintenanceTb WHERE problem_id = ? AND household_id = ? LIMIT 1');
+        $checkMaint->execute([$probId, $householdId]);
+        if (!$checkMaint->fetch()) {
+            manage_set_flash_and_redirect('Maintenance report not found in this household.', 'danger', 'manage.php?section=maintenance');
+        }
+
+        $updateM = $connection->prepare(
+            'UPDATE maintenanceTb
+             SET problem_type = ?, status = ?, problem_desc = ?
+             WHERE problem_id = ? AND household_id = ?'
+        );
+        $updateM->execute([$probType, $status, $probDesc !== '' ? $probDesc : null, $probId, $householdId]);
+
+        manage_set_flash_and_redirect('Maintenance report updated successfully.', 'success', 'manage.php?section=maintenance');
+    }
+
+    // 12. TOGGLE MAINTENANCE STATUS (e.g. Mark as Resolved / Reopen)
+    if ($action === 'toggle_maintenance_status') {
+        $rawProbId = $_POST['problem_id'] ?? null;
+        $probId = is_string($rawProbId) && ctype_digit($rawProbId) ? (int) $rawProbId : 0;
+        $newStatus = trim(is_string($_POST['new_status'] ?? null) ? $_POST['new_status'] : 'Resolved');
+
+        if ($probId < 1) {
+            manage_set_flash_and_redirect('Invalid maintenance report specified.', 'danger', 'manage.php?section=maintenance');
+        }
+        $validStatuses = ['Open', 'In Progress', 'Resolved'];
+        if (!in_array($newStatus, $validStatuses, true)) {
+            $newStatus = 'Resolved';
+        }
+
+        $checkMaint = $connection->prepare('SELECT problem_id FROM maintenanceTb WHERE problem_id = ? AND household_id = ? LIMIT 1');
+        $checkMaint->execute([$probId, $householdId]);
+        if (!$checkMaint->fetch()) {
+            manage_set_flash_and_redirect('Maintenance report not found in this household.', 'danger', 'manage.php?section=maintenance');
+        }
+
+        $updateM = $connection->prepare(
+            'UPDATE maintenanceTb SET status = ? WHERE problem_id = ? AND household_id = ?'
+        );
+        $updateM->execute([$newStatus, $probId, $householdId]);
+
+        manage_set_flash_and_redirect("Maintenance report marked as {$newStatus}.", 'success', 'manage.php?section=maintenance');
+    }
+
+    // 13. DELETE MAINTENANCE REPORT
+    if ($action === 'delete_maintenance') {
+        $rawProbId = $_POST['problem_id'] ?? null;
+        $probId = is_string($rawProbId) && ctype_digit($rawProbId) ? (int) $rawProbId : 0;
+
+        if ($probId < 1) {
+            manage_set_flash_and_redirect('Invalid maintenance report specified.', 'danger', 'manage.php?section=maintenance');
+        }
+
+        $delM = $connection->prepare('DELETE FROM maintenanceTb WHERE problem_id = ? AND household_id = ?');
+        $delM->execute([$probId, $householdId]);
+
+        manage_set_flash_and_redirect('Maintenance report deleted successfully.', 'success', 'manage.php?section=maintenance');
+    }
+
     manage_set_flash_and_redirect('Action completed.', 'info', 'manage.php');
 }
 
@@ -823,6 +901,80 @@ $activityLogsStmt = $connection->prepare(
 );
 $activityLogsStmt->execute([$householdId, $householdId, $householdId, $householdId, $householdId, $householdId, $householdId]);
 $activityLogs = $activityLogsStmt->fetchAll();
+
+// 5. Maintenance Tickets & Stats
+$maintStatsStmt = $connection->prepare(
+    'SELECT COUNT(*) AS total_count,
+            COALESCE(SUM(CASE WHEN LOWER(status) = "open" THEN 1 ELSE 0 END), 0) AS open_count,
+            COALESCE(SUM(CASE WHEN LOWER(status) = "in progress" THEN 1 ELSE 0 END), 0) AS in_progress_count,
+            COALESCE(SUM(CASE WHEN LOWER(status) = "resolved" THEN 1 ELSE 0 END), 0) AS resolved_count
+     FROM maintenanceTb
+     WHERE household_id = ?'
+);
+$maintStatsStmt->execute([$householdId]);
+$maintStats = $maintStatsStmt->fetch() ?: [
+    'total_count' => 0,
+    'open_count' => 0,
+    'in_progress_count' => 0,
+    'resolved_count' => 0,
+];
+$totalMaintenanceCount = (int) $maintStats['total_count'];
+$openMaintenanceCount = (int) $maintStats['open_count'];
+$inProgressMaintenanceCount = (int) $maintStats['in_progress_count'];
+$resolvedMaintenanceCount = (int) $maintStats['resolved_count'];
+
+$maintSearch = isset($_GET['maint_q']) && is_string($_GET['maint_q']) ? trim($_GET['maint_q']) : '';
+$maintStatusFilter = isset($_GET['maint_status']) && is_string($_GET['maint_status']) ? strtolower(trim($_GET['maint_status'])) : 'all';
+if (!in_array($maintStatusFilter, ['all', 'open', 'in_progress', 'resolved'], true)) {
+    $maintStatusFilter = 'all';
+}
+
+$maintWhere = ['m.household_id = ?'];
+$maintParams = [$householdId];
+
+if ($maintStatusFilter === 'open') {
+    $maintWhere[] = 'LOWER(m.status) = "open"';
+} elseif ($maintStatusFilter === 'in_progress') {
+    $maintWhere[] = 'LOWER(m.status) = "in progress"';
+} elseif ($maintStatusFilter === 'resolved') {
+    $maintWhere[] = 'LOWER(m.status) = "resolved"';
+}
+
+if ($maintSearch !== '') {
+    $maintWhere[] = '(m.problem_type LIKE ? OR m.problem_desc LIKE ? OR u.full_name LIKE ? OR u.username LIKE ?)';
+    $sPattern = '%' . $maintSearch . '%';
+    $maintParams[] = $sPattern;
+    $maintParams[] = $sPattern;
+    $maintParams[] = $sPattern;
+    $maintParams[] = $sPattern;
+}
+
+$maintWhereClause = implode(' AND ', $maintWhere);
+
+$countMaintStmt = $connection->prepare(
+    "SELECT COUNT(*) FROM maintenanceTb m
+     LEFT JOIN userTb u ON u.user_id = m.reported_by
+     WHERE {$maintWhereClause}"
+);
+$countMaintStmt->execute($maintParams);
+$filteredMaintCount = (int) $countMaintStmt->fetchColumn();
+
+$maintPagination = get_pagination_params($filteredMaintCount, 10, [5, 10, 20, 50], 'm_page', 'm_per_page');
+$maintLimit = (int) $maintPagination['per_page'];
+$maintOffset = (int) $maintPagination['offset'];
+
+$maintListStmt = $connection->prepare(
+    "SELECT m.problem_id, m.household_id, m.reported_by, m.problem_type, m.problem_desc, m.reported_at, m.status,
+            COALESCE(NULLIF(u.full_name, ''), u.username, 'Anonymous') AS reported_by_name,
+            u.profile_picture, u.username
+     FROM maintenanceTb m
+     LEFT JOIN userTb u ON u.user_id = m.reported_by
+     WHERE {$maintWhereClause}
+     ORDER BY m.reported_at DESC, m.problem_id DESC
+     LIMIT {$maintLimit} OFFSET {$maintOffset}"
+);
+$maintListStmt->execute($maintParams);
+$maintenanceTickets = $maintListStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -931,6 +1083,9 @@ $activityLogs = $activityLogsStmt->fetchAll();
           <a href="manage.php?section=settings" class="rs-view-pill-btn <?= $section === 'settings' ? 'active' : '' ?>">
             <i class="bi bi-gear-fill"></i> Settings
           </a>
+          <a href="manage.php?section=maintenance" class="rs-view-pill-btn <?= $section === 'maintenance' ? 'active' : '' ?>">
+            <i class="bi bi-tools"></i> Maintenance &amp; Repairs
+          </a>
         </div>
       </div>
     <?php endif; ?>
@@ -1020,6 +1175,27 @@ $activityLogs = $activityLogsStmt->fetchAll();
           </div>
           <div class="rs-hub-footer">
             <span>Open Household Settings</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- 5. Maintenance & Repairs -->
+        <a href="manage.php?section=maintenance" class="rs-hub-card card-coral">
+          <div>
+            <div class="rs-hub-top">
+              <div class="rs-hub-icon coral">
+                <i class="bi bi-tools"></i>
+              </div>
+              <span class="rs-hub-pill"><?= $openMaintenanceCount ?> Open</span>
+            </div>
+            <div class="rs-hub-main">
+              <h2 class="rs-hub-title">Maintenance &amp; Repairs</h2>
+              <div class="rs-hub-metric text-primary" style="color: var(--rs-primary) !important;"><?= $totalMaintenanceCount ?> Total &bull; <?= $resolvedMaintenanceCount ?> Resolved</div>
+              <p class="rs-hub-desc">Review household repair issues reported by roommates, edit ticket details, update status, or mark as done.</p>
+            </div>
+          </div>
+          <div class="rs-hub-footer">
+            <span>Open Maintenance &amp; Repairs</span>
             <i class="bi bi-arrow-right"></i>
           </div>
         </a>
@@ -1695,6 +1871,187 @@ $activityLogs = $activityLogsStmt->fetchAll();
       </section>
     <?php endif; ?>
 
+    <!-- ==================================================
+         VIEW 6: MAINTENANCE & REPAIRS (OPENABLE PAGE)
+         ================================================== -->
+    <?php if ($section === 'maintenance'): ?>
+      <section class="manage-card card-household shadow-sm" id="maintenanceSection">
+        <div class="manage-card-header">
+          <div class="manage-card-title-wrap">
+            <div class="manage-card-icon maintenance"><i class="bi bi-tools"></i></div>
+            <div>
+              <h2 class="h5 fw-bold text-main mb-0">Maintenance &amp; Repairs</h2>
+              <small class="text-secondary-custom">Review tickets submitted by roommates, update repair progress, and mark issues as resolved</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-warm-secondary text-dark-accent border px-3 py-2 fw-bold">
+              <?= $totalMaintenanceCount ?> Total &bull; <?= $openMaintenanceCount ?> Open
+            </span>
+            <button type="button" class="btn btn-rs-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createMaintenanceModal">
+              <i class="bi bi-plus-lg me-1"></i> New Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter and Search Row -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+          <form action="manage.php" method="GET" class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 480px;">
+            <input type="hidden" name="section" value="maintenance">
+            <input type="hidden" name="m_page" value="1">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-secondary-custom"></i></span>
+              <input type="text" name="maint_q" class="form-control form-control-sm border-start-0" placeholder="Search by problem type, description, or reporter..." value="<?= h($maintSearch) ?>">
+              <?php if ($maintSearch !== ''): ?>
+                <a href="manage.php?section=maintenance<?= $maintStatusFilter !== 'all' ? '&maint_status=' . urlencode($maintStatusFilter) : '' ?>" class="btn btn-outline-secondary btn-sm" title="Clear search"><i class="bi bi-x-lg"></i></a>
+              <?php endif; ?>
+              <button type="submit" class="btn btn-rs-primary btn-sm">Search</button>
+            </div>
+          </form>
+
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Maintenance status filter">
+              <a href="manage.php?section=maintenance&maint_status=all<?= $maintSearch !== '' ? '&maint_q=' . urlencode($maintSearch) : '' ?>" class="btn <?= $maintStatusFilter === 'all' ? 'btn-rs-primary' : 'btn-rs-outline' ?>">All (<?= $totalMaintenanceCount ?>)</a>
+              <a href="manage.php?section=maintenance&maint_status=open<?= $maintSearch !== '' ? '&maint_q=' . urlencode($maintSearch) : '' ?>" class="btn <?= $maintStatusFilter === 'open' ? 'btn-rs-primary' : 'btn-rs-outline' ?>">Open (<?= $openMaintenanceCount ?>)</a>
+              <a href="manage.php?section=maintenance&maint_status=in_progress<?= $maintSearch !== '' ? '&maint_q=' . urlencode($maintSearch) : '' ?>" class="btn <?= $maintStatusFilter === 'in_progress' ? 'btn-rs-primary' : 'btn-rs-outline' ?>">In Progress (<?= $inProgressMaintenanceCount ?>)</a>
+              <a href="manage.php?section=maintenance&maint_status=resolved<?= $maintSearch !== '' ? '&maint_q=' . urlencode($maintSearch) : '' ?>" class="btn <?= $maintStatusFilter === 'resolved' ? 'btn-rs-primary' : 'btn-rs-outline' ?>">Resolved (<?= $resolvedMaintenanceCount ?>)</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Maintenance Table -->
+        <div class="manage-table-wrapper">
+          <table class="table manage-table" id="manageMaintenanceTable">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Issue / Problem</th>
+                <th style="width: 30%;">Description</th>
+                <th style="width: 15%;">Reported By</th>
+                <th style="width: 12%;">Date</th>
+                <th style="width: 10%;">Status</th>
+                <th class="text-end" style="width: 8%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($maintenanceTickets)): ?>
+                <tr>
+                  <td colspan="6" class="manage-empty-state">
+                    <i class="bi bi-tools"></i>
+                    <p class="mb-0">No maintenance reports found matching your criteria.</p>
+                    <?php if ($maintSearch !== '' || $maintStatusFilter !== 'all'): ?>
+                      <a href="manage.php?section=maintenance" class="btn btn-sm btn-rs-outline mt-2">Clear Filters</a>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+              <?php else: ?>
+                <?php foreach ($maintenanceTickets as $ticket): ?>
+                  <?php
+                    $tStatus = strtolower((string) $ticket['status']);
+                    $tBadgeClass = 'rs-badge-open';
+                    $tLabel = 'Open';
+                    if ($tStatus === 'resolved') {
+                        $tBadgeClass = 'rs-badge-resolved';
+                        $tLabel = 'Resolved';
+                    } elseif ($tStatus === 'in progress' || $tStatus === 'in_progress') {
+                        $tBadgeClass = 'rs-badge-in-progress';
+                        $tLabel = 'In Progress';
+                    }
+
+                    $tReporter = (string) $ticket['reported_by_name'];
+                    $tInitials = household_initials($tReporter);
+                  ?>
+                  <tr>
+                    <td>
+                      <div class="fw-bold text-main d-flex align-items-center gap-2">
+                        <i class="bi bi-wrench text-dark-accent"></i>
+                        <span><?= h((string) $ticket['problem_type']) ?></span>
+                      </div>
+                      <small class="text-secondary-custom">Ticket #<?= (int) $ticket['problem_id'] ?></small>
+                    </td>
+                    <td>
+                      <?php if (!empty($ticket['problem_desc'])): ?>
+                        <div class="text-main small" style="max-width: 340px; white-space: normal; word-break: break-word;">
+                          <?= nl2br(h((string) $ticket['problem_desc'])) ?>
+                        </div>
+                      <?php else: ?>
+                        <span class="text-secondary-custom fst-italic small">No description provided</span>
+                      <?php endif; ?>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <?= render_avatar_markup($tInitials, (string) ($ticket['profile_picture'] ?? ''), $tReporter, '', 'width: 32px; height: 32px; font-size: 0.8rem;') ?>
+                        <div class="text-truncate" style="max-width: 120px;">
+                          <div class="fw-semibold text-main small text-truncate"><?= h($tReporter) ?></div>
+                          <?php if (!empty($ticket['username'])): ?>
+                            <small class="text-secondary-custom d-block text-truncate">@<?= h((string) $ticket['username']) ?></small>
+                          <?php endif; ?>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-nowrap small text-secondary-custom">
+                      <?= h(date('M j, Y', strtotime((string) $ticket['reported_at']))) ?>
+                    </td>
+                    <td>
+                      <span class="rs-badge <?= $tBadgeClass ?>">
+                        <span class="badge-dot"></span> <?= h($tLabel) ?>
+                      </span>
+                    </td>
+                    <td class="text-end">
+                      <div class="d-flex justify-content-end align-items-center gap-1">
+                        <?php if ($tStatus !== 'resolved'): ?>
+                          <form action="manage.php" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                            <input type="hidden" name="action" value="toggle_maintenance_status">
+                            <input type="hidden" name="problem_id" value="<?= (int) $ticket['problem_id'] ?>">
+                            <input type="hidden" name="new_status" value="Resolved">
+                            <button type="submit" class="btn btn-sm btn-rs-primary p-1 px-2" data-confirm="Mark this maintenance issue as Resolved?" title="Mark as Done">
+                              <i class="bi bi-check2"></i> <span class="d-none d-xl-inline">Done</span>
+                            </button>
+                          </form>
+                        <?php else: ?>
+                          <form action="manage.php" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                            <input type="hidden" name="action" value="toggle_maintenance_status">
+                            <input type="hidden" name="problem_id" value="<?= (int) $ticket['problem_id'] ?>">
+                            <input type="hidden" name="new_status" value="Open">
+                            <button type="submit" class="btn btn-sm btn-rs-outline p-1 px-2" data-confirm="Reopen this maintenance ticket?" title="Reopen Ticket">
+                              <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-xl-inline">Reopen</span>
+                            </button>
+                          </form>
+                        <?php endif; ?>
+
+                        <button type="button" class="btn btn-sm btn-rs-outline p-1 px-2 btn-edit-maintenance"
+                                data-bs-toggle="modal" data-bs-target="#editMaintenanceModal"
+                                data-id="<?= (int) $ticket['problem_id'] ?>"
+                                data-type="<?= h((string) $ticket['problem_type']) ?>"
+                                data-status="<?= h((string) $ticket['status']) ?>"
+                                data-desc="<?= h((string) ($ticket['problem_desc'] ?? '')) ?>"
+                                title="Edit Report">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+
+                        <form action="manage.php" method="POST" class="d-inline">
+                          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                          <input type="hidden" name="action" value="delete_maintenance">
+                          <input type="hidden" name="problem_id" value="<?= (int) $ticket['problem_id'] ?>">
+                          <button type="submit" class="btn btn-sm btn-outline-danger p-1 px-2" data-confirm="Are you sure you want to permanently delete this maintenance report?" title="Delete Report">
+                            <i class="bi bi-trash3"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Maintenance Pagination -->
+        <?= render_pagination($maintPagination, ['section' => 'maintenance', 'maint_q' => $maintSearch !== '' ? $maintSearch : null, 'maint_status' => $maintStatusFilter !== 'all' ? $maintStatusFilter : null]) ?>
+      </section>
+    <?php endif; ?>
+
   </main>
 
   <!-- ==================================================
@@ -2024,6 +2381,96 @@ $activityLogs = $activityLogsStmt->fetchAll();
           <div class="modal-footer rs-modal-footer">
             <button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-rs-primary"><i class="bi bi-plus-lg me-1"></i> Create Chore</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 10: Create Maintenance Report (Admin shortcut) -->
+  <div class="modal fade" id="createMaintenanceModal" tabindex="-1" aria-labelledby="createMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rs-modal">
+        <div class="modal-header rs-modal-header">
+          <h2 class="modal-title h5 text-main" id="createMaintenanceModalLabel"><i class="bi bi-tools text-dark-accent me-2"></i>New Maintenance Report</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form action="actions/maintenance-create.php" method="POST">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="return_to" value="manage.php?section=maintenance">
+          <div class="modal-body rs-modal-body">
+            <div class="mb-3">
+              <label for="createMaintProblemType" class="form-label text-secondary-custom small fw-bold text-uppercase">Problem Category <span class="text-danger">*</span></label>
+              <select class="form-select manage-input" id="createMaintProblemType" name="problem_type" required>
+                <option value="" disabled selected>Select issue category...</option>
+                <option value="Plumbing">Plumbing (leaks, pipes, drainage, toilet)</option>
+                <option value="Electrical">Electrical (outlets, wiring, lighting)</option>
+                <option value="Appliance">Appliance (refrigerator, stove, washer)</option>
+                <option value="Carpentry">Carpentry / Structural (doors, locks, windows, walls)</option>
+                <option value="HVAC">HVAC / Air Conditioning &amp; Heating</option>
+                <option value="Pest Control">Pest Control</option>
+                <option value="Cleaning">Cleaning &amp; Waste Disposal</option>
+                <option value="Security">Security &amp; Keys</option>
+                <option value="Other">Other / General Maintenance</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="createMaintProblemDesc" class="form-label text-secondary-custom small fw-bold text-uppercase">Description</label>
+              <textarea name="problem_desc" id="createMaintProblemDesc" rows="4" class="form-control manage-input" maxlength="2000" placeholder="Provide details about the issue..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer rs-modal-footer">
+            <button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-rs-primary"><i class="bi bi-send me-1"></i> Submit Report</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 11: Edit Maintenance Report -->
+  <div class="modal fade" id="editMaintenanceModal" tabindex="-1" aria-labelledby="editMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rs-modal">
+        <div class="modal-header rs-modal-header">
+          <h2 class="modal-title h5 text-main" id="editMaintenanceModalLabel"><i class="bi bi-pencil text-dark-accent me-2"></i>Edit Maintenance Report</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form action="manage.php" method="POST">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="action" value="update_maintenance">
+          <input type="hidden" name="problem_id" id="editMaintId" value="">
+          <div class="modal-body rs-modal-body">
+            <div class="mb-3">
+              <label for="editMaintType" class="form-label text-secondary-custom small fw-bold text-uppercase">Problem Category <span class="text-danger">*</span></label>
+              <select class="form-select manage-input" id="editMaintType" name="problem_type" required>
+                <option value="Plumbing">Plumbing</option>
+                <option value="Electrical">Electrical</option>
+                <option value="Appliance">Appliance</option>
+                <option value="Carpentry">Carpentry / Structural</option>
+                <option value="HVAC">HVAC / Air Conditioning</option>
+                <option value="Pest Control">Pest Control</option>
+                <option value="Cleaning">Cleaning &amp; Waste Disposal</option>
+                <option value="Security">Security &amp; Keys</option>
+                <option value="Other">Other / General Maintenance</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="editMaintStatus" class="form-label text-secondary-custom small fw-bold text-uppercase">Status <span class="text-danger">*</span></label>
+              <select class="form-select manage-input" id="editMaintStatus" name="status" required>
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="editMaintDesc" class="form-label text-secondary-custom small fw-bold text-uppercase">Description</label>
+              <textarea name="problem_desc" id="editMaintDesc" rows="4" class="form-control manage-input" maxlength="2000" placeholder="Provide details about the issue..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer rs-modal-footer">
+            <button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-rs-primary"><i class="bi bi-check2 me-1"></i> Save Changes</button>
           </div>
         </form>
       </div>

@@ -147,6 +147,19 @@ try {
 
     $rawShareStatuses = $_POST['share_status'] ?? [];
 
+    // Insert or update shares for selected members
+    $updateShareStmt = $billConnection->prepare(
+        'UPDATE bill_sharesTb
+         SET share_amount = :share_amount,
+             payment_status = :payment_status
+         WHERE bill_share_id = :bill_share_id'
+    );
+
+    $insertShareStmt = $billConnection->prepare(
+        'INSERT INTO bill_sharesTb (bill_id, user_id, share_amount, payment_status)
+         VALUES (:bill_id, :user_id, :share_amount, :payment_status)'
+    );
+
     // Prepared statements for payment record synchronization
     $checkPaymentStmt = $billConnection->prepare(
         'SELECT payment_id FROM paymentsTb WHERE bill_share_id = :share_id LIMIT 1'

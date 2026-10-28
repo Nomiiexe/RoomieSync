@@ -146,6 +146,20 @@ if ($householdId !== null) {
             $allActivities[] = $row;
         }
 
+        // Activity 5: Maintenance Reports
+        $maintActQuery = $connection->prepare(
+            "SELECT m.reported_at AS activity_at, u.full_name, u.username, m.problem_type AS item, 0 AS amount, 'maintenance' AS type
+             FROM maintenanceTb AS m
+             LEFT JOIN userTb AS u ON u.user_id = m.reported_by
+             WHERE m.household_id = :household_id
+             ORDER BY m.reported_at DESC
+             LIMIT 20"
+        );
+        $maintActQuery->execute(['household_id' => $householdId]);
+        foreach ($maintActQuery->fetchAll() as $row) {
+            $allActivities[] = $row;
+        }
+
         // Sort all activity chronologically descending
         usort($allActivities, static function (array $left, array $right): int {
             return strtotime((string) $right['activity_at']) <=> strtotime((string) $left['activity_at']);
@@ -296,7 +310,7 @@ $notice = consume_flash_message();
     <?php else: ?>
       <div class="row g-4">
         <!-- Household Overview Card -->
-        <div class="col-lg-5 col-xl-4">
+        <div class="col-lg-5 col-xl-4 d-flex flex-column gap-4">
           <div class="household-hero-card card-household">
             <!-- Household Image / Placeholder -->
             <?php if (!empty($currentHousehold['household_image'])): ?>
@@ -380,6 +394,31 @@ $notice = consume_flash_message();
                   Share this code with roommates to invite them to join this household.
                 </small>
               </div>
+            </div>
+          </div>
+
+          <!-- Maintenance & Repairs Card -->
+          <div class="rs-card p-4">
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="rs-brand-icon" style="width: 44px; height: 44px; font-size: 1.25rem; background: rgba(224, 86, 36, 0.12); color: var(--rs-primary); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-tools"></i>
+              </div>
+              <div>
+                <h3 class="h6 fw-bold text-main mb-0">Maintenance &amp; Repairs</h3>
+                <small class="text-secondary-custom">Report issues around the home</small>
+              </div>
+            </div>
+            <p class="text-secondary-custom small mb-3">
+              Experiencing a plumbing leak, broken appliance, power fault, or need a repair? Submit a maintenance report to alert your household.
+            </p>
+            <div class="d-flex flex-column gap-2">
+              <button type="button" class="btn btn-rs-primary w-100 d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#reportMaintenanceModal">
+                <i class="bi bi-wrench-adjustable"></i>
+                <span>Report an Issue</span>
+              </button>
+              <a href="reports.php?view=maintenance" class="btn btn-rs-outline btn-sm text-center">
+                <i class="bi bi-journal-text me-1"></i> View Maintenance Reports
+              </a>
             </div>
           </div>
         </div>
@@ -539,6 +578,10 @@ $notice = consume_flash_message();
                     } elseif ($actType === 'member') {
                         $actIcon = 'bi-person-plus-fill';
                         $actTitle = '<strong>' . h((string) ($act['full_name'] ?: $act['username'])) . '</strong> joined as ' . h((string) $act['item']) . '.';
+                    } elseif ($actType === 'maintenance') {
+                        $actIcon = 'bi-tools';
+                        $actBadgeClass = 'maintenance';
+                        $actTitle = '<strong>' . h((string) ($act['full_name'] ?: ($act['username'] ?: 'A member'))) . '</strong> reported maintenance: <strong>' . h((string) $act['item']) . '</strong>.';
                     }
                   ?>
                   <div class="activity-item">
@@ -566,6 +609,61 @@ $notice = consume_flash_message();
       </div>
     <?php endif; ?>
   </main>
+
+  <!-- Report Maintenance Modal -->
+  <div class="modal fade" id="reportMaintenanceModal" tabindex="-1" aria-labelledby="reportMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rs-card p-0 border-0 shadow-lg">
+        <div class="modal-header border-bottom p-4">
+          <div>
+            <span class="rs-eyebrow d-block mb-1">Household Issue</span>
+            <h5 class="modal-title fw-bold text-main" id="reportMaintenanceModalLabel">Report Maintenance Issue</h5>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <form action="actions/maintenance-create.php" method="POST" id="reportMaintenanceForm">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="return_to" value="household.php">
+          <div class="modal-body p-4">
+            <p class="text-secondary-custom small mb-3">
+              Describe the maintenance or repair issue so household members and administrators can coordinate repairs.
+            </p>
+
+            <div class="mb-3">
+              <label for="maintProblemType" class="form-label fw-bold text-main small">Problem Category <span class="text-danger">*</span></label>
+              <select class="form-select" id="maintProblemType" name="problem_type" required>
+                <option value="" disabled selected>Select issue category...</option>
+                <option value="Plumbing">Plumbing (leaks, pipes, drainage, toilet)</option>
+                <option value="Electrical">Electrical (outlets, wiring, lighting)</option>
+                <option value="Appliance">Appliance (refrigerator, stove, washer)</option>
+                <option value="Carpentry">Carpentry / Structural (doors, locks, windows, walls)</option>
+                <option value="HVAC">HVAC / Air Conditioning &amp; Heating</option>
+                <option value="Pest Control">Pest Control</option>
+                <option value="Cleaning">Cleaning &amp; Waste Disposal</option>
+                <option value="Security">Security &amp; Keys</option>
+                <option value="Other">Other / General Maintenance</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label for="maintProblemDesc" class="form-label fw-bold text-main small">Description</label>
+              <textarea class="form-control" id="maintProblemDesc" name="problem_desc" rows="4" maxlength="2000"
+                        placeholder="Provide details about the issue (e.g. location, severity, when it started)..."></textarea>
+              <small class="text-secondary-custom">Max 2,000 characters.</small>
+            </div>
+          </div>
+
+          <div class="modal-footer border-top p-3">
+            <button type="button" class="btn btn-rs-outline" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-rs-primary">
+              <i class="bi bi-send me-1"></i> Submit Report
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <!-- Join Household Modal -->
   <div class="modal fade" id="joinHouseholdModal" tabindex="-1" aria-labelledby="joinHouseholdModalLabel" aria-hidden="true">

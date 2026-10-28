@@ -150,10 +150,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Delete Action Buttons
   const deleteButtons = document.querySelectorAll('.rs-btn-delete');
   deleteButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       const itemTitle = btn.getAttribute('data-title') || 'this item';
-      if (confirm(`Are you sure you want to delete ${itemTitle}?`)) {
+      const confirmed = await showConfirmDialog(`Are you sure you want to delete ${itemTitle}?`, {
+        title: 'Confirm Deletion',
+        confirmText: 'Delete',
+        variant: 'danger'
+      });
+      if (confirmed) {
         const target = btn.closest('tr') || btn.closest('.rs-card') || btn.closest('.list-group-item');
         if (target) {
           target.style.transition = 'all 0.3s ease';
@@ -297,3 +302,147 @@ function rsHandlePageSizeChange(selectElement) {
   window.location.href = url.toString();
 }
 window.rsHandlePageSizeChange = rsHandlePageSizeChange;
+
+/**
+ * In-App Themed Confirmation Dialog (Replaces native browser window.confirm)
+ * Returns a Promise<boolean> resolving true if confirmed, false if cancelled/closed.
+ */
+function showConfirmDialog(message, options = {}) {
+  return new Promise((resolve) => {
+    let modalEl = document.getElementById('rsConfirmModal');
+    if (!modalEl) {
+      modalEl = document.createElement('div');
+      modalEl.id = 'rsConfirmModal';
+      modalEl.className = 'modal fade';
+      modalEl.tabIndex = -1;
+      modalEl.setAttribute('aria-hidden', 'true');
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+          <div class="modal-content rs-modal border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header border-bottom py-3 px-4" style="background-color: var(--rs-card-secondary, #faf7f4);">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" id="rsConfirmIconBox" style="width: 36px; height: 36px; font-size: 1.15rem;">
+                  <i class="bi bi-question-circle-fill" id="rsConfirmIcon"></i>
+                </div>
+                <h5 class="modal-title fw-bold text-main mb-0 fs-6" id="rsConfirmTitle">Confirmation</h5>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="rsConfirmCloseBtn"></button>
+            </div>
+            <div class="modal-body py-4 px-4 text-secondary-custom" id="rsConfirmMessage" style="font-size: 0.95rem; line-height: 1.55; color: #4b5563;">
+            </div>
+            <div class="modal-footer border-top py-3 px-4 d-flex justify-content-end gap-2" style="background-color: #fff;">
+              <button type="button" class="btn btn-rs-outline btn-sm px-3" data-bs-dismiss="modal" id="rsConfirmCancelBtn">Cancel</button>
+              <button type="button" class="btn btn-rs-primary btn-sm px-3" id="rsConfirmOkBtn">Confirm</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+    }
+
+    const titleEl = modalEl.querySelector('#rsConfirmTitle');
+    const msgEl = modalEl.querySelector('#rsConfirmMessage');
+    const okBtn = modalEl.querySelector('#rsConfirmOkBtn');
+    const cancelBtn = modalEl.querySelector('#rsConfirmCancelBtn');
+    const iconBox = modalEl.querySelector('#rsConfirmIconBox');
+    const iconEl = modalEl.querySelector('#rsConfirmIcon');
+
+    const title = options.title || 'Confirmation';
+    const confirmText = options.confirmText || 'Confirm';
+    const cancelText = options.cancelText || 'Cancel';
+    const variant = options.variant || 'primary';
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    okBtn.textContent = confirmText;
+    cancelBtn.textContent = cancelText;
+
+    okBtn.className = 'btn btn-sm px-3';
+    if (variant === 'danger') {
+      okBtn.classList.add('btn-danger');
+      iconBox.style.background = '#fee2e2';
+      iconBox.style.color = '#dc2626';
+      iconEl.className = 'bi bi-exclamation-triangle-fill';
+    } else if (variant === 'success') {
+      okBtn.classList.add('btn-success');
+      iconBox.style.background = '#dcfce7';
+      iconBox.style.color = '#16a34a';
+      iconEl.className = 'bi bi-check2-circle';
+    } else {
+      okBtn.classList.add('btn-rs-primary');
+      iconBox.style.background = '#fef3c7';
+      iconBox.style.color = '#d97706';
+      iconEl.className = 'bi bi-question-circle-fill';
+    }
+
+    let settled = false;
+    let bsModal = (typeof bootstrap !== 'undefined' && bootstrap.Modal)
+      ? (bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: true }))
+      : null;
+
+    const showHandler = () => {
+      setTimeout(() => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length > 0) {
+          const topBackdrop = backdrops[backdrops.length - 1];
+          topBackdrop.classList.add('rs-confirm-backdrop');
+          topBackdrop.style.zIndex = '1075';
+        }
+      }, 10);
+    };
+    modalEl.addEventListener('shown.bs.modal', showHandler, { once: true });
+
+    const handleConfirm = () => {
+      if (!settled) {
+        settled = true;
+        if (bsModal) bsModal.hide();
+        resolve(true);
+      }
+    };
+
+    const handleDismiss = () => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    };
+
+    const newOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+    newOkBtn.addEventListener('click', handleConfirm);
+
+    const hiddenHandler = () => {
+      handleDismiss();
+      modalEl.removeEventListener('hidden.bs.modal', hiddenHandler);
+      if (document.querySelectorAll('.modal.show').length > 0) {
+        document.body.classList.add('modal-open');
+      }
+    };
+    modalEl.addEventListener('hidden.bs.modal', hiddenHandler);
+
+    if (bsModal) {
+      bsModal.show();
+    } else {
+      resolve(window.confirm(message));
+    }
+  });
+}
+window.showConfirmDialog = showConfirmDialog;
+
+// Intercept forms configured with data-confirm
+document.addEventListener('submit', async (e) => {
+  const form = e.target;
+  if (!form || !form.getAttribute) return;
+  const confirmMsg = form.getAttribute('data-confirm');
+  if (confirmMsg && form.getAttribute('data-confirmed') !== 'true') {
+    e.preventDefault();
+    const title = form.getAttribute('data-confirm-title') || 'Confirmation';
+    const confirmText = form.getAttribute('data-confirm-btn') || 'Confirm';
+    const variant = form.getAttribute('data-confirm-variant') || 'primary';
+    const ok = await showConfirmDialog(confirmMsg, { title, confirmText, variant });
+    if (ok) {
+      form.setAttribute('data-confirmed', 'true');
+      form.submit();
+    }
+  }
+});

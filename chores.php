@@ -74,6 +74,36 @@ try {
     $memberQuery->execute(['household_id' => $householdId]);
     $members = $memberQuery->fetchAll();
 
+    // Ensure all active rotation chores have a pending assignment scheduled
+    $unassignedRotations = $connection->prepare("
+        SELECT c.chore_id, c.frequency,
+               (SELECT r.user_id FROM chore_rotationTb r WHERE r.chore_id = c.chore_id ORDER BY r.rotation_order ASC LIMIT 1) AS first_user_id
+        FROM choresTb c
+        WHERE c.household_id = :household_id
+          AND c.assignment_type = 'Rotation'
+          AND NOT EXISTS (
+              SELECT 1 FROM chore_assignmentsTb ca WHERE ca.chore_id = c.chore_id AND LOWER(ca.status) <> 'completed'
+          )
+    ");
+    $unassignedRotations->execute(['household_id' => $householdId]);
+    $missingChores = $unassignedRotations->fetchAll();
+    if (!empty($missingChores)) {
+        $insMissing = $connection->prepare("
+            INSERT INTO chore_assignmentsTb (chore_id, user_id, due_date, status, completed_at)
+            VALUES (:chore_id, :user_id, :due_date, 'Pending', NULL)
+        ");
+        foreach ($missingChores as $mc) {
+            if (!empty($mc['first_user_id'])) {
+                $dueDate = chore_next_due_date((string) $mc['frequency'], date('Y-m-d')) ?: date('Y-m-d');
+                $insMissing->execute([
+                    'chore_id' => (int) $mc['chore_id'],
+                    'user_id' => (int) $mc['first_user_id'],
+                    'due_date' => $dueDate,
+                ]);
+            }
+        }
+    }
+
     $searchClause = '';
     $searchParams = ['household_id' => $householdId];
     if ($search !== '') {

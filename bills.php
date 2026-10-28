@@ -644,14 +644,13 @@ $notice = consume_flash_message();
                 <th>Due Date</th>
                 <th>Status</th>
                 <th>My Share</th>
-                <th>Payment Status</th>
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
               <?php if (empty($filteredBills)): ?>
                 <tr>
-                  <td colspan="9" class="text-center py-5 text-secondary-custom">
+                  <td colspan="8" class="text-center py-5 text-secondary-custom">
                     <div class="py-4">
                       <i class="bi bi-receipt-cutoff fs-1 d-block mb-2 text-muted"></i>
                       <div class="fw-bold mb-1">
@@ -731,22 +730,16 @@ $notice = consume_flash_message();
                         <span class="text-secondary-custom small">Not assigned</span>
                       <?php endif; ?>
                     </td>
-                    <td>
-                      <?php if ($bill['my_payment_status'] !== null): ?>
-                        <?php $isMyPaid = strcasecmp((string) $bill['my_payment_status'], 'paid') === 0; ?>
-                        <span class="rs-bill-status <?= $isMyPaid ? 'rs-bill-status-paid' : 'rs-bill-status-unpaid' ?>">
-                          <span class="status-dot"></span> <?= $isMyPaid ? 'Paid' : 'Unpaid' ?>
-                        </span>
-                      <?php else: ?>
-                        <span class="text-secondary-custom small">—</span>
-                      <?php endif; ?>
-                    </td>
                     <td class="text-end">
                       <div class="d-inline-flex align-items-center gap-1">
                         <!-- Quick Pay Share for Current User if Assigned -->
                         <?php if ($bill['my_share_id'] !== null): ?>
                           <?php $mySharePaid = strcasecmp((string) $bill['my_payment_status'], 'paid') === 0; ?>
-                          <form action="actions/bill-share-status.php" method="POST" class="d-inline m-0">
+                          <form action="actions/bill-share-status.php" method="POST" class="d-inline m-0"
+                                data-confirm="Mark your personal share as <?= $mySharePaid ? 'Unpaid' : 'Paid' ?>?"
+                                data-confirm-title="Confirm Share Payment"
+                                data-confirm-btn="Mark <?= $mySharePaid ? 'Unpaid' : 'Paid' ?>"
+                                data-confirm-variant="<?= $mySharePaid ? 'primary' : 'success' ?>">
                             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
                             <input type="hidden" name="share_id" value="<?= (int) $bill['my_share_id'] ?>">
                             <input type="hidden" name="status" value="<?= $mySharePaid ? 'Unpaid' : 'Paid' ?>">
@@ -775,7 +768,11 @@ $notice = consume_flash_message();
                             <ul class="dropdown-menu dropdown-menu-end rs-dropdown">
                               <?php $isBillPaid = strcasecmp((string) $bill['status'], 'Paid') === 0; ?>
                               <li>
-                                <form action="actions/bill-status.php" method="POST" class="m-0">
+                                <form action="actions/bill-status.php" method="POST" class="m-0"
+                                      data-confirm="Mark entire bill and all member shares as <?= $isBillPaid ? 'Unpaid' : 'Paid' ?>?"
+                                      data-confirm-title="Confirm Bill Status"
+                                      data-confirm-btn="Mark <?= $isBillPaid ? 'Unpaid' : 'Paid' ?>"
+                                      data-confirm-variant="<?= $isBillPaid ? 'primary' : 'success' ?>">
                                   <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
                                   <input type="hidden" name="bill_id" value="<?= (int) $bill['bill_id'] ?>">
                                   <input type="hidden" name="status" value="<?= $isBillPaid ? 'Unpaid' : 'Paid' ?>">
@@ -824,20 +821,20 @@ $notice = consume_flash_message();
         </div>
         <div class="rs-bulk-actions">
           <?php if ($isAdmin): ?>
-            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="mark_paid">
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="mark_paid" data-confirm="Are you sure you want to mark {count} selected bill(s) as Paid?">
               <i class="bi bi-check2-circle me-1"></i> Mark Paid
             </button>
-            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="mark_unpaid">
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="mark_unpaid" data-confirm="Are you sure you want to mark {count} selected bill(s) as Unpaid?">
               <i class="bi bi-arrow-counterclockwise me-1"></i> Mark Unpaid
             </button>
             <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete" data-confirm="Are you sure you want to permanently delete the selected bills? All member shares and payment records will also be removed.">
               <i class="bi bi-trash3 me-1"></i> Delete Selected
             </button>
           <?php elseif ($tab === 'my'): ?>
-            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="share_paid">
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="share_paid" data-confirm="Are you sure you want to mark your share for {count} selected bill(s) as Paid?">
               <i class="bi bi-check2-circle me-1"></i> Mark My Share Paid
             </button>
-            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="share_unpaid">
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="share_unpaid" data-confirm="Are you sure you want to mark your share for {count} selected bill(s) as Unpaid?">
               <i class="bi bi-arrow-counterclockwise me-1"></i> Mark My Share Unpaid
             </button>
           <?php endif; ?>
@@ -1129,7 +1126,11 @@ $notice = consume_flash_message();
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end rs-dropdown">
                               <li>
-                                <form action="actions/expense-status.php" method="POST" class="m-0">
+                                <form action="actions/expense-status.php" method="POST" class="m-0"
+                                      data-confirm="Mark this expense as <?= $allExpPaid ? 'Unpaid' : 'Paid' ?>?"
+                                      data-confirm-title="Confirm Expense Status"
+                                      data-confirm-btn="Mark <?= $allExpPaid ? 'Unpaid' : 'Paid' ?>"
+                                      data-confirm-variant="<?= $allExpPaid ? 'primary' : 'success' ?>">
                                   <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
                                   <input type="hidden" name="expense_id" value="<?= (int) $exp['expense_id'] ?>">
                                   <input type="hidden" name="is_paid" value="<?= $allExpPaid ? '0' : '1' ?>">
@@ -1178,20 +1179,20 @@ $notice = consume_flash_message();
         </div>
         <div class="rs-bulk-actions">
           <?php if ($isAdmin): ?>
-            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="mark_settled">
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="mark_settled" data-confirm="Are you sure you want to mark {count} selected expense(s) as Settled?">
               <i class="bi bi-check2-circle me-1"></i> Mark Settled
             </button>
-            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="mark_unsettled">
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="mark_unsettled" data-confirm="Are you sure you want to mark {count} selected expense(s) as Unsettled?">
               <i class="bi bi-arrow-counterclockwise me-1"></i> Mark Unsettled
             </button>
             <button type="button" class="btn btn-danger btn-sm rs-bulk-submit-btn" data-action="delete" data-confirm="Are you sure you want to permanently delete the selected expenses? All member share records will also be removed.">
               <i class="bi bi-trash3 me-1"></i> Delete Selected
             </button>
           <?php else: ?>
-            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="share_paid">
+            <button type="button" class="btn btn-rs-primary btn-sm rs-bulk-submit-btn" data-action="share_paid" data-confirm="Are you sure you want to mark your share for {count} selected expense(s) as Paid?">
               <i class="bi bi-check2-circle me-1"></i> Mark My Share Paid
             </button>
-            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="share_unpaid">
+            <button type="button" class="btn btn-rs-outline btn-sm rs-bulk-submit-btn" data-action="share_unpaid" data-confirm="Are you sure you want to mark your share for {count} selected expense(s) as Unpaid?">
               <i class="bi bi-arrow-counterclockwise me-1"></i> Mark My Share Unpaid
             </button>
           <?php endif; ?>
@@ -1919,6 +1920,7 @@ $notice = consume_flash_message();
   <?php endif; ?>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/js/main.js"></script>
   <script src="assets/js/bills.js"></script>
   <script src="assets/js/selection.js"></script>
 </body>

@@ -89,6 +89,11 @@ try {
          VALUES (:bill_id, :user_id, :share_amount, :payment_status)'
     );
 
+    $insertPayment = $billConnection->prepare(
+        "INSERT INTO paymentsTb (bill_share_id, amount, payment_date, status)
+         VALUES (:share_id, :amount, CURDATE(), 'Paid')"
+    );
+
     foreach ($sanitizedShares as $memberId => $shareAmount) {
         $memberStatus = (strcasecmp($status, 'Paid') === 0) ? 'Paid' : 'Unpaid';
         $insertShare->execute([
@@ -97,6 +102,13 @@ try {
             'share_amount' => $shareAmount,
             'payment_status' => $memberStatus,
         ]);
+        if ($memberStatus === 'Paid') {
+            $shareId = (int) $billConnection->lastInsertId();
+            $insertPayment->execute([
+                'share_id' => $shareId,
+                'amount' => $shareAmount,
+            ]);
+        }
     }
 
     $billConnection->commit();

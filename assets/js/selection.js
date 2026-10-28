@@ -148,16 +148,33 @@ class RoomieSyncSelection {
     this.updateState();
   }
 
-  executeBulkAction(action, confirmMsg) {
+  async executeBulkAction(action, confirmMsg) {
     const selectedIds = this.getSelectedIds();
     if (selectedIds.length === 0) {
-      alert('Please select at least one record.');
+      if (typeof showToast === 'function') {
+        showToast('Please select at least one record.', 'error');
+      } else {
+        alert('Please select at least one record.');
+      }
       return;
     }
 
     if (confirmMsg) {
       const formattedMsg = confirmMsg.replace('{count}', selectedIds.length);
-      if (!window.confirm(formattedMsg)) {
+      const isDelete = action.toLowerCase().includes('delete');
+      const isPaid = action.toLowerCase().includes('paid') || action.toLowerCase().includes('settled');
+      const variant = isDelete ? 'danger' : (isPaid ? 'success' : 'primary');
+      const title = isDelete ? 'Confirm Deletion' : (isPaid ? 'Confirm Payment Status' : 'Confirm Bulk Action');
+      const confirmText = isDelete ? 'Delete Selected' : (isPaid ? 'Confirm' : 'Continue');
+
+      if (typeof showConfirmDialog === 'function') {
+        const ok = await showConfirmDialog(formattedMsg, {
+          title,
+          confirmText,
+          variant
+        });
+        if (!ok) return;
+      } else if (!window.confirm(formattedMsg)) {
         return;
       }
     }

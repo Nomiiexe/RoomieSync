@@ -239,9 +239,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   const buttonLabel = isPaid ? 'Mark Unpaid' : 'Mark Paid';
                   const buttonIcon = isPaid ? 'bi-x-circle' : 'bi-check-circle';
                   const btnClass = isPaid ? 'btn-outline-secondary' : 'btn-success';
+                  const safeName = (share.full_name || share.username || 'member').replace(/["'\\]/g, '');
 
                   actionButtonHtml = `
-                    <form action="actions/bill-share-status.php" method="POST" class="d-inline ms-2">
+                    <form action="actions/bill-share-status.php" method="POST" class="d-inline ms-2" data-confirm="Mark share for ${safeName} as ${targetStatus}?" data-confirm-title="Confirm Share Payment" data-confirm-btn="Mark as ${targetStatus}" data-confirm-variant="${isPaid ? 'primary' : 'success'}">
                       <input type="hidden" name="csrf_token" value="${csrfVal}">
                       <input type="hidden" name="share_id" value="${share.bill_share_id}">
                       <input type="hidden" name="status" value="${targetStatus}">
@@ -358,8 +359,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wire up "All Paid" and "All Unpaid" buttons inside edit modal
     const editForm = document.getElementById('editBillForm');
     if (editForm) {
-      editForm.querySelector('.edit-mark-all-paid')?.addEventListener('click', (e) => {
+      editForm.querySelector('.edit-mark-all-paid')?.addEventListener('click', async (e) => {
         e.preventDefault();
+        const ok = await showConfirmDialog('Mark all selected member shares as Paid?', {
+          title: 'Mark All Shares Paid',
+          confirmText: 'Mark All Paid',
+          variant: 'success'
+        });
+        if (!ok) return;
         editForm.querySelectorAll('.edit-share-status').forEach((sel) => {
           if (!sel.disabled) {
             sel.value = 'Paid';
@@ -367,8 +374,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      editForm.querySelector('.edit-mark-all-unpaid')?.addEventListener('click', (e) => {
+      editForm.querySelector('.edit-mark-all-unpaid')?.addEventListener('click', async (e) => {
         e.preventDefault();
+        const ok = await showConfirmDialog('Mark all selected member shares as Unpaid?', {
+          title: 'Mark All Shares Unpaid',
+          confirmText: 'Mark All Unpaid',
+          variant: 'primary'
+        });
+        if (!ok) return;
         editForm.querySelectorAll('.edit-share-status').forEach((sel) => {
           if (!sel.disabled) {
             sel.value = 'Unpaid';
@@ -471,9 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   const buttonLabel = isPaid ? 'Mark Unpaid' : 'Mark Paid';
                   const buttonIcon = isPaid ? 'bi-x-circle' : 'bi-check-circle';
                   const btnClass = isPaid ? 'btn-outline-secondary' : 'btn-success';
+                  const safeExpName = (share.full_name || share.username || 'member').replace(/["'\\]/g, '');
 
                   actionButtonHtml = `
-                    <form action="actions/expense-share-status.php" method="POST" class="d-inline ms-2">
+                    <form action="actions/expense-share-status.php" method="POST" class="d-inline ms-2" data-confirm="Mark expense share for ${safeExpName} as ${isPaid ? 'Unpaid' : 'Paid'}?" data-confirm-title="Confirm Expense Share" data-confirm-btn="Mark as ${isPaid ? 'Unpaid' : 'Paid'}" data-confirm-variant="${isPaid ? 'primary' : 'success'}">
                       <input type="hidden" name="csrf_token" value="${csrfVal}">
                       <input type="hidden" name="share_id" value="${share.share_id}">
                       <input type="hidden" name="is_paid" value="${targetState}">
@@ -595,6 +609,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteIdInput) deleteIdInput.value = expenseId;
         if (deleteTitleEl) deleteTitleEl.textContent = `“${expenseTitle}”`;
       });
+    });
+  }
+
+  // Confirmation for Modal Quick Status Actions
+  const viewBillStatusForm = document.getElementById('viewBillStatusForm');
+  if (viewBillStatusForm) {
+    viewBillStatusForm.addEventListener('submit', async (e) => {
+      if (viewBillStatusForm.getAttribute('data-confirmed') === 'true') {
+        viewBillStatusForm.removeAttribute('data-confirmed');
+        return;
+      }
+      e.preventDefault();
+      const target = document.getElementById('viewBillStatusTarget')?.value || 'Paid';
+      const isPaid = target.toLowerCase() === 'paid';
+      const ok = await showConfirmDialog(`Are you sure you want to mark this entire bill and all member shares as ${target}?`, {
+        title: 'Confirm Bill Status',
+        confirmText: `Mark as ${target}`,
+        variant: isPaid ? 'success' : 'primary'
+      });
+      if (ok) {
+        viewBillStatusForm.setAttribute('data-confirmed', 'true');
+        viewBillStatusForm.submit();
+      }
+    });
+  }
+
+  const viewExpenseStatusForm = document.getElementById('viewExpenseStatusForm');
+  if (viewExpenseStatusForm) {
+    viewExpenseStatusForm.addEventListener('submit', async (e) => {
+      if (viewExpenseStatusForm.getAttribute('data-confirmed') === 'true') {
+        viewExpenseStatusForm.removeAttribute('data-confirmed');
+        return;
+      }
+      e.preventDefault();
+      const isPaid = document.getElementById('viewExpenseStatusTarget')?.value === '1';
+      const actionName = isPaid ? 'Paid' : 'Unpaid';
+      const ok = await showConfirmDialog(`Are you sure you want to mark all member shares for this expense as ${actionName}?`, {
+        title: 'Confirm Expense Status',
+        confirmText: `Mark as ${actionName}`,
+        variant: isPaid ? 'success' : 'primary'
+      });
+      if (ok) {
+        viewExpenseStatusForm.setAttribute('data-confirmed', 'true');
+        viewExpenseStatusForm.submit();
+      }
     });
   }
 });
