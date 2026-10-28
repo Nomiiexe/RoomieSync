@@ -213,7 +213,7 @@ $notice = consume_flash_message();
       </ul>
       <div class="rs-nav-user dropdown">
         <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <?= render_avatar_markup($avatarText, null, $displayName) ?>
+          <?= render_current_user_avatar($avatarText, $displayName) ?>
           <span class="d-none d-md-inline"><?= h($displayName) ?></span>
           <?php if ($currentUserRole !== ''): ?><span class="role-badge roommate d-none d-xl-inline"><?= h($currentUserRole) ?></span><?php endif; ?>
         </a>

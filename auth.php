@@ -246,13 +246,20 @@ function consume_flash_message(): ?array
 
 function render_avatar_markup(string $fallbackInitials, ?string $imagePath = null, string $alt = 'Avatar', string $extraClass = '', string $extraStyle = ''): string
 {
-    $img = $imagePath ?? ($_SESSION['profile_picture'] ?? '');
+    $img = ($imagePath !== null) ? trim($imagePath) : '';
     $classAttr = 'rs-avatar' . ($extraClass !== '' ? ' ' . $extraClass : '');
     $styleAttr = $extraStyle !== '' ? ' style="' . htmlspecialchars($extraStyle, ENT_QUOTES, 'UTF-8') . '"' : '';
 
-    if ($img !== '') {
+    if ($img !== '' && (preg_match('#^https?://#i', $img) || is_file(__DIR__ . '/' . ltrim($img, '/\\')))) {
         return '<div class="' . htmlspecialchars($classAttr, ENT_QUOTES, 'UTF-8') . '"' . $styleAttr . '><img src="' . htmlspecialchars($img, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '"></div>';
     }
 
     return '<div class="' . htmlspecialchars($classAttr, ENT_QUOTES, 'UTF-8') . '"' . $styleAttr . '>' . htmlspecialchars($fallbackInitials, ENT_QUOTES, 'UTF-8') . '</div>';
 }
+
+function render_current_user_avatar(string $fallbackInitials, string $alt = 'My Profile', string $extraClass = '', string $extraStyle = ''): string
+{
+    $img = (string) ($_SESSION['profile_picture'] ?? '');
+    return render_avatar_markup($fallbackInitials, $img, $alt, $extraClass, $extraStyle);
+}
+

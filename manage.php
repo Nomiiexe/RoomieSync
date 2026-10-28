@@ -110,7 +110,7 @@ if (!$isAdmin) {
           </ul>
           <div class="rs-nav-user dropdown">
             <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <?= render_avatar_markup($avatarText, null, $displayName) ?>
+              <?= render_current_user_avatar($avatarText, $displayName) ?>
               <span class="d-none d-md-inline"><?= h($displayName) ?></span>
               <span class="role-badge roommate d-none d-xl-inline"><?= h($role) ?></span>
             </a>
@@ -860,7 +860,7 @@ $activityLogs = $activityLogsStmt->fetchAll();
       </ul>
       <div class="rs-nav-user dropdown">
         <a href="#" class="rs-user-btn dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <?= render_avatar_markup($avatarText, null, $displayName) ?>
+          <?= render_current_user_avatar($avatarText, $displayName) ?>
           <span class="d-none d-md-inline"><?= h($displayName) ?></span>
           <span class="role-badge admin d-none d-xl-inline">Admin</span>
         </a>
